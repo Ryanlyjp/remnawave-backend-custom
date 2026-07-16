@@ -28,6 +28,7 @@ import {
     UnblockIpsCommand,
 } from '@remnawave/node-contract';
 
+import { TypedConfigService } from '@common/config/app-config';
 import { prettyBytesUtil } from '@common/utils/bytes';
 import { formatExecutionTime, getTime } from '@common/utils/get-elapsed-time';
 
@@ -45,7 +46,10 @@ export class AxiosService {
     private mtlsOptions: IMtlsOptions;
     private readonly socksAgentCache = new Map<string, MtlsSocksProxyAgent>();
 
-    constructor(private readonly commandBus: CommandBus) {
+    constructor(
+        private readonly commandBus: CommandBus,
+        private readonly configService: TypedConfigService,
+    ) {
         this.axiosInstance = axios.create({
             timeout: 45_000,
             headers: {
@@ -156,10 +160,16 @@ export class AxiosService {
             return ok(response.data);
         } catch (error) {
             if (error instanceof AxiosError) {
-                // this.logger.error(
-                //     'Error in Axios StartXray Request:',
-                //     JSON.stringify(error.message),
-                // );
+                if (this.configService.get('CUSTOM_START_XRAY_DIAGNOSTICS')) {
+                    this.logger.error(
+                        `[DIAG-AXIOS-STARTXRAY] ${JSON.stringify({
+                            message: error.message,
+                            code: error.code,
+                            status: error.response?.status ?? null,
+                            data: error.response?.data ?? null,
+                        })}`,
+                    );
+                }
 
                 return fail(ERRORS.NODE_ERROR_WITH_MSG.withMessage(JSON.stringify(error.message)));
             } else {

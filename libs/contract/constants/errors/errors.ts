@@ -819,6 +819,16 @@ export const ERRORS = {
         message: 'Snippet cannot contain empty objects',
         httpCode: 400,
     },
+    SNIPPET_VALIDATION_ERROR: {
+        code: 'A167B',
+        message: '',
+        httpCode: 400,
+        withMessage: (message: string) => ({
+            code: 'A167B',
+            message,
+            httpCode: 400,
+        }),
+    },
     GET_ALL_SUBSCRIPTION_TEMPLATES_ERROR: {
         code: 'A168',
         message: 'Get all subscription templates error',

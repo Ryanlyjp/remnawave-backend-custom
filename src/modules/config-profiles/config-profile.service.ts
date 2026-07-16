@@ -17,6 +17,7 @@ import { ReorderConfigProfilesRequestDto } from './dtos';
 import { ConfigProfileWithInboundsAndNodesEntity } from './entities';
 import { ConfigProfileInboundEntity } from './entities/config-profile-inbound.entity';
 import { ConfigProfileEntity } from './entities/config-profile.entity';
+import { applyPolicyModules } from './helpers/apply-policy-modules';
 import { DeleteConfigProfileByUuidResponseModel, GetAllInboundsResponseModel } from './models';
 import { GetConfigProfileByUuidResponseModel } from './models/get-config-profile-by-uuid.response.model';
 import { GetConfigProfilesResponseModel } from './models/get-config-profiles.response.model';
@@ -93,8 +94,7 @@ export class ConfigProfileService {
                 snippetsMap.set(snippet.name, snippet.snippet);
             }
 
-            const config = new XRayConfig(configProfile.config as object);
-            config.replaceSnippets(snippetsMap);
+            const config = applyPolicyModules(configProfile.config as object, snippetsMap);
 
             configProfile.config = config.getSortedConfig();
 

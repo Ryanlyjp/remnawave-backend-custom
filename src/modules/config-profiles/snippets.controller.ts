@@ -102,6 +102,9 @@ export class SnippetsController {
         const result = await this.snippetsService.createSnippet(
             createSnippetDto.name,
             createSnippetDto.snippet,
+            createSnippetDto.kind,
+            createSnippetDto.scope,
+            createSnippetDto.description,
         );
 
         const data = errorHandler(result);
@@ -130,6 +133,9 @@ export class SnippetsController {
         const result = await this.snippetsService.updateSnippet(
             updateSnippetDto.name,
             updateSnippetDto.snippet,
+            updateSnippetDto.kind,
+            updateSnippetDto.scope,
+            updateSnippetDto.description,
         );
 
         const data = errorHandler(result);

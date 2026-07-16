@@ -2,6 +2,7 @@ import { ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common
 import { QueryBus } from '@nestjs/cqrs';
 import { AuthGuard } from '@nestjs/passport';
 
+import { TypedConfigService } from '@common/config/app-config';
 import { RawCacheService } from '@common/raw-cache';
 import { TResult } from '@common/types';
 import {
@@ -21,6 +22,7 @@ export class JwtDefaultGuard extends AuthGuard('registeredUserJWT') {
     constructor(
         private readonly rawCacheService: RawCacheService,
         private readonly queryBus: QueryBus,
+        private readonly configService: TypedConfigService,
     ) {
         super();
     }
@@ -47,7 +49,10 @@ export class JwtDefaultGuard extends AuthGuard('registeredUserJWT') {
 
                 const clientType = headers[REMNAWAVE_CLIENT_TYPE_HEADER.toLowerCase()];
 
-                if (clientType !== REMNAWAVE_CLIENT_TYPE_BROWSER) {
+                if (
+                    !this.configService.get('CUSTOM_ALLOW_ADMIN_JWT_API') &&
+                    clientType !== REMNAWAVE_CLIENT_TYPE_BROWSER
+                ) {
                     throw new ForbiddenException(
                         'For API requests you must create own API-token in the admin dashboard.',
                     );

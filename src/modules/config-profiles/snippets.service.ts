@@ -5,7 +5,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { fail, ok, TResult } from '@common/types';
 import { ERRORS } from '@libs/contracts/constants/errors';
 
+import { PolicyModuleKind, PolicyModuleScope } from './constants/policy-module.constants';
 import { SnippetEntity } from './entities';
+import { validatePolicyModuleInput } from './helpers/policy-module-validator';
 import { GetSnippetsResponseModel } from './models';
 import { SnippetsRepository } from './repositories/snippets.repository';
 
@@ -46,18 +48,23 @@ export class SnippetsService {
     public async createSnippet(
         name: string,
         snippet: object,
+        kind?: PolicyModuleKind | null,
+        scope?: PolicyModuleScope | null,
+        description?: string | null,
     ): Promise<TResult<GetSnippetsResponseModel>> {
         try {
-            if (!Array.isArray(snippet) || snippet.length === 0) {
-                return fail(ERRORS.SNIPPET_CANNOT_BE_EMPTY);
-            }
-
-            if (snippet.some((item) => Object.keys(item).length === 0)) {
-                return fail(ERRORS.SNIPPET_CANNOT_CONTAIN_EMPTY_OBJECTS);
-            }
+            validatePolicyModuleInput({
+                snippet,
+                kind,
+                scope,
+                description,
+            });
 
             const snippetEntity = new SnippetEntity({
                 name,
+                kind,
+                scope,
+                description,
                 snippet,
             });
 
@@ -77,6 +84,9 @@ export class SnippetsService {
                 }
             }
             this.logger.error(error);
+            if (error instanceof Error) {
+                return fail(ERRORS.SNIPPET_VALIDATION_ERROR.withMessage(error.message));
+            }
             return fail(ERRORS.CREATE_CONFIG_PROFILE_ERROR);
         }
     }
@@ -84,15 +94,17 @@ export class SnippetsService {
     public async updateSnippet(
         name: string,
         snippet: object,
+        kind?: PolicyModuleKind | null,
+        scope?: PolicyModuleScope | null,
+        description?: string | null,
     ): Promise<TResult<GetSnippetsResponseModel>> {
         try {
-            if (!Array.isArray(snippet) || snippet.length === 0) {
-                return fail(ERRORS.SNIPPET_CANNOT_BE_EMPTY);
-            }
-
-            if (snippet.some((item) => Object.keys(item).length === 0)) {
-                return fail(ERRORS.SNIPPET_CANNOT_CONTAIN_EMPTY_OBJECTS);
-            }
+            validatePolicyModuleInput({
+                snippet,
+                kind,
+                scope,
+                description,
+            });
 
             const existingSnippet = await this.snippetsRepository.findByName(name);
 
@@ -102,6 +114,9 @@ export class SnippetsService {
 
             const snippetEntity = new SnippetEntity({
                 name,
+                kind,
+                scope,
+                description,
                 snippet,
             });
 
@@ -121,6 +136,10 @@ export class SnippetsService {
                 if (fields.includes('name')) {
                     return fail(ERRORS.SNIPPET_NAME_ALREADY_EXISTS);
                 }
+            }
+
+            if (error instanceof Error) {
+                return fail(ERRORS.SNIPPET_VALIDATION_ERROR.withMessage(error.message));
             }
 
             return fail(ERRORS.UPDATE_SNIPPET_ERROR);

@@ -10,6 +10,7 @@ import { ERRORS } from '@libs/contracts/constants';
 import { GetConfigProfileByUuidQuery } from '@modules/config-profiles/queries/get-config-profile-by-uuid';
 import { GetSnippetsQuery } from '@modules/config-profiles/queries/get-snippets';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
+import { applyPolicyModules } from '@modules/config-profiles/helpers/apply-policy-modules';
 
 import {
     GetPreparedConfigWithUsersQuery,
@@ -52,13 +53,11 @@ export class GetPreparedConfigWithUsersHandler implements IQueryHandler<
 
             const activeInboundsTags = new Set(activeInbounds.map((inbound) => inbound.tag));
 
-            config = new XRayConfig(configProfile.response.config as object);
+            config = applyPolicyModules(configProfile.response.config as object, snippetsMap);
 
             config.cleanInboundClients(true);
 
             config.processCertificates();
-
-            config.replaceSnippets(snippetsMap);
 
             const configHash = config.getConfigHash();
 

@@ -63,12 +63,16 @@ export interface IResolveProxyConfigOptions {
 export class ResolveProxyConfigService {
     private readonly nanoid: ReturnType<typeof customAlphabet>;
     private readonly subPublicDomain: string;
+    private readonly subscriptionAddressOverrides: Record<string, string>;
     private readonly domainRegex =
         /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 
     constructor(private readonly configService: TypedConfigService) {
         this.nanoid = customAlphabet('0123456789abcdefghjkmnopqrstuvwxyz', 10);
         this.subPublicDomain = this.configService.getOrThrow('SUB_PUBLIC_DOMAIN');
+        this.subscriptionAddressOverrides = this.configService.get(
+            'CUSTOM_SUBSCRIPTION_ADDRESS_OVERRIDES',
+        );
     }
 
     public async resolveProxyConfig(
@@ -543,7 +547,12 @@ export class ResolveProxyConfigService {
     }): ResolvedProxyConfig | null {
         const { inputHost, inbound, finalRemark, user } = ctx;
 
-        const address = this.resolveRandomizedValue(inputHost.address);
+        const addressOverride = this.subscriptionAddressOverrides[user.username];
+        const address = this.resolveRandomizedValue(
+            addressOverride && this.isDomain(inputHost.address)
+                ? addressOverride
+                : inputHost.address,
+        );
 
         const protocol = this.resolveProtocolOptions(
             inputHost,

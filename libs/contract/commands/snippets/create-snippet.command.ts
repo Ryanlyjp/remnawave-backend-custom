@@ -24,6 +24,9 @@ export namespace CreateSnippetCommand {
                 /^[A-Za-z0-9_\s-]+$/,
                 'Name can only contain letters, numbers, underscores, dashes and spaces',
             ),
+        kind: z.enum(['routing-rule-set', 'outbound-set', 'balancer-set']).optional().nullable(),
+        scope: z.enum(['shared', 'internal']).optional().nullable(),
+        description: z.string().max(255).optional().nullable(),
         snippet: z.array(z.object({}).passthrough()),
     });
 

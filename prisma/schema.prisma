@@ -539,8 +539,11 @@ model HostsToNodes {
 }
 
 model ConfigProfileSnippets {
-  name    String @id @map("name") @db.VarChar(255)
-  snippet Json   @map("snippet")
+  name        String  @id @map("name") @db.VarChar(255)
+  kind        String? @map("kind") @db.VarChar(32)
+  scope       String? @map("scope") @db.VarChar(32)
+  description String? @map("description") @db.VarChar(255)
+  snippet     Json    @map("snippet")
 
   createdAt DateTime @default(dbgenerated("now()")) @map("created_at")
 

@@ -94,6 +94,21 @@ export const configSchema = z
             .refine((val) => val >= 16 && val <= 64, 'SHORT_UUID_LENGTH must be between 16 and 64'),
         IS_HTTP_LOGGING_ENABLED: booleanString('false'),
         ENABLE_DEBUG_LOGS: booleanString('false'),
+        CUSTOM_ALLOW_ADMIN_JWT_API: booleanString('false'),
+        CUSTOM_START_XRAY_DIAGNOSTICS: booleanString('false'),
+        CUSTOM_SUBSCRIPTION_ADDRESS_OVERRIDES: z
+            .string()
+            .default('{}')
+            .transform((val) => {
+                try {
+                    return JSON.parse(val);
+                } catch {
+                    throw new Error(
+                        'CUSTOM_SUBSCRIPTION_ADDRESS_OVERRIDES must be a valid JSON object',
+                    );
+                }
+            })
+            .pipe(z.record(z.string(), z.string())),
         REMNAWAVE_BRANCH: z.string().default('dev'),
 
         // COOKIE_AUTH_ENABLED: z
