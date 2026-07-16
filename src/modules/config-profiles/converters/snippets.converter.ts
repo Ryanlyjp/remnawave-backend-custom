@@ -13,6 +13,9 @@ const modelToEntity = (model: ConfigProfileSnippets): SnippetEntity => {
 const entityToModel = (entity: SnippetEntity): ConfigProfileSnippets => {
     return {
         name: entity.name,
+        kind: entity.kind ?? null,
+        scope: entity.scope ?? null,
+        description: entity.description ?? null,
         snippet: entity.snippet,
         createdAt: entity.createdAt,
     };

@@ -91,6 +91,21 @@ export const configSchema = z
         SHORT_UUID_CUSTOM_PATTERN: z.optional(z.string()),
         IS_HTTP_LOGGING_ENABLED: booleanString('false'),
         ENABLE_DEBUG_LOGS: booleanString('false'),
+        CUSTOM_ALLOW_ADMIN_JWT_API: booleanString('false'),
+        CUSTOM_START_XRAY_DIAGNOSTICS: booleanString('false'),
+        CUSTOM_SUBSCRIPTION_ADDRESS_OVERRIDES: z
+            .string()
+            .default('{}')
+            .transform((val) => {
+                try {
+                    return JSON.parse(val);
+                } catch {
+                    throw new Error(
+                        'CUSTOM_SUBSCRIPTION_ADDRESS_OVERRIDES must be a valid JSON object',
+                    );
+                }
+            })
+            .pipe(z.record(z.string(), z.string())),
         REMNAWAVE_BRANCH: z.string().default('dev'),
         SERVICE_CLEAN_USAGE_HISTORY: booleanString('false'),
         SERVICE_DISABLE_USER_USAGE_RECORDS: booleanString('false'),

@@ -229,7 +229,19 @@ export class AxiosService {
             }
 
             if (error instanceof AxiosError) {
-                if (logAxiosError) {
+                if (
+                    label === 'START XRAY' &&
+                    this.configService.get('CUSTOM_START_XRAY_DIAGNOSTICS')
+                ) {
+                    this.logger.error(
+                        `[DIAG-AXIOS-STARTXRAY] ${JSON.stringify({
+                            message: error.message,
+                            code: error.code,
+                            status: error.response?.status ?? null,
+                            data: error.response?.data ?? null,
+                        })}`,
+                    );
+                } else if (logAxiosError) {
                     this.logger.error(`Error in Axios ${label} request: ${error.message}`);
                 }
 
