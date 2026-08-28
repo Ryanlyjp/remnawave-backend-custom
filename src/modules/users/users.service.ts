@@ -20,6 +20,7 @@ import { ERRORS, USERS_STATUS, EVENTS } from '@libs/contracts/constants';
 
 import { UserEvent } from '@integration-modules/notifications/interfaces';
 
+import { GetHostsForUserQuery } from '@modules/hosts/queries/get-hosts-for-user';
 import { AddUserToNodeEvent } from '@modules/nodes/events/add-user-to-node';
 import { AddUsersToNodeEvent } from '@modules/nodes/events/add-users-to-node';
 import { RemoveUserFromNodeEvent } from '@modules/nodes/events/remove-user-from-node';
@@ -132,6 +133,80 @@ export class UsersService {
             }
 
             return fail(ERRORS.CREATE_USER_ERROR);
+        }
+    }
+
+    public async getUserHostAliases(userId: number) {
+        try {
+            const user = await this.userRepository.findUniqueByCriteria(
+                { id: BigInt(userId) },
+                { activeInternalSquads: false },
+            );
+
+            if (!user) return fail(ERRORS.USER_NOT_FOUND);
+
+            const hosts = await this.queryBus.execute(
+                new GetHostsForUserQuery(user.id, false, false),
+            );
+
+            if (!hosts.isOk) return fail(ERRORS.GET_ALL_HOSTS_ERROR);
+
+            return ok({
+                userId,
+                hosts: hosts.response.map((host) => ({
+                    hostUuid: host.uuid,
+                    viewPosition: host.viewPosition,
+                    defaultRemark: host.defaultRemark,
+                    customRemark: host.userHostAlias,
+                    effectiveRemark: host.remark,
+                })),
+            });
+        } catch (error) {
+            this.logger.error(error);
+            return fail(ERRORS.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public async updateUserHostAliases(
+        userId: number,
+        aliases: { hostUuid: string; remark: string }[],
+    ) {
+        try {
+            const user = await this.userRepository.findUniqueByCriteria(
+                { id: BigInt(userId) },
+                { activeInternalSquads: false },
+            );
+
+            if (!user) return fail(ERRORS.USER_NOT_FOUND);
+
+            const hosts = await this.queryBus.execute(
+                new GetHostsForUserQuery(user.id, false, false),
+            );
+
+            if (!hosts.isOk) return fail(ERRORS.GET_ALL_HOSTS_ERROR);
+
+            const accessibleHosts = new Map(hosts.response.map((host) => [host.uuid, host]));
+            const normalized = new Map<string, string>();
+
+            for (const alias of aliases) {
+                const host = accessibleHosts.get(alias.hostUuid);
+                if (!host) return fail(ERRORS.HOST_NOT_FOUND);
+
+                const remark = alias.remark.trim();
+                if (remark && remark !== host.defaultRemark) {
+                    normalized.set(alias.hostUuid, remark);
+                }
+            }
+
+            await this.userRepository.replaceHostAliases(
+                user.id,
+                [...normalized.entries()].map(([hostUuid, remark]) => ({ hostUuid, remark })),
+            );
+
+            return await this.getUserHostAliases(userId);
+        } catch (error) {
+            this.logger.error(error);
+            return fail(ERRORS.INTERNAL_SERVER_ERROR);
         }
     }
 

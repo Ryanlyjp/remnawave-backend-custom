@@ -474,6 +474,26 @@ export class UsersRepository {
         return await this.findUniqueByCriteria({ id }, { activeInternalSquads: true });
     }
 
+    @Transactional()
+    public async replaceHostAliases(
+        userId: bigint,
+        aliases: { hostUuid: string; remark: string }[],
+    ): Promise<void> {
+        await this.prisma.tx.userHostAliases.deleteMany({
+            where: { userId },
+        });
+
+        if (aliases.length === 0) return;
+
+        await this.prisma.tx.userHostAliases.createMany({
+            data: aliases.map((alias) => ({
+                userId,
+                hostUuid: alias.hostUuid,
+                remark: alias.remark,
+            })),
+        });
+    }
+
     public async updateUserStatus(id: bigint, status: TUsersStatus): Promise<boolean> {
         const result = await this.qb.kysely
             .updateTable('users')

@@ -10,6 +10,7 @@ export const USERS_ROUTES = {
     DELETE: (userId: string) => `${userId}`,
     GET_BY_ID: (userId: string) => `${userId}`,
     ACCESSIBLE_NODES: (userId: string) => `${userId}/accessible-nodes`,
+    HOST_ALIASES: (userId: string) => `${userId}/host-aliases`,
     SUBSCRIPTION_REQUEST_HISTORY: (userId: string) => `${userId}/subscription-request-history`,
     ACTIONS: {
         ENABLE: (userId: string) => `${userId}/${USERS_ACTIONS_ROUTE}/enable`,

@@ -62,6 +62,8 @@ export class GetHostsForUserHandler implements IQueryHandler<GetHostsForUserQuer
 
                     return new HostWithRawInbound({
                         ...h,
+                        defaultRemark: h.remark,
+                        remark: h.userHostAlias ?? h.remark,
                         rawInbound: inbound.rawInbound,
                         inboundTag: inbound.tag,
                         xrayJsonTemplate: h.xrayJsonTemplateUuid

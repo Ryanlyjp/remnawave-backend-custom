@@ -19,6 +19,7 @@ import {
     GetUsersTagsCommand,
     GetUsersCommand,
     GetUserAccessibleNodesCommand,
+    GetUserHostAliasesCommand,
     GetUserByIdCommand,
     GetUserByShortUuidCommand,
     GetUserByUsernameCommand,
@@ -29,6 +30,7 @@ import {
     RevokeUserSubscriptionCommand,
     ExtendUserCommand,
     UpdateUserCommand,
+    UpdateUserHostAliasesCommand,
 } from '@libs/contracts/commands';
 import { ROLE } from '@libs/contracts/constants';
 
@@ -41,6 +43,8 @@ import {
     GetUsersQueryDto,
     GetUserAccessibleNodesParamDto,
     GetUserAccessibleNodesResponseDto,
+    GetUserHostAliasesParamDto,
+    GetUserHostAliasesResponseDto,
     GetUserByShortUuidParamDto,
     GetUserByUsernameParamDto,
     GetUsersStreamQueryDto,
@@ -53,6 +57,9 @@ import {
     RevokeUserSubscriptionBodyDto,
     RevokeUserSubscriptionParamDto,
     UpdateUserBodyDto,
+    UpdateUserHostAliasesBodyDto,
+    UpdateUserHostAliasesParamDto,
+    UpdateUserHostAliasesResponseDto,
     GetUsersResponseDto,
     GetUserByIdParamDto,
     UserResponseDto,
@@ -202,6 +209,32 @@ export class UsersController {
         return {
             response: data,
         };
+    }
+
+    @Endpoint({
+        command: GetUserHostAliasesCommand,
+        httpCode: HttpStatus.OK,
+        type: GetUserHostAliasesResponseDto,
+    })
+    async getUserHostAliases(
+        @Param() param: GetUserHostAliasesParamDto,
+    ): Promise<GetUserHostAliasesResponseDto> {
+        const result = await this.usersService.getUserHostAliases(param.userId);
+        return { response: errorHandler(result) };
+    }
+
+    @Endpoint({
+        command: UpdateUserHostAliasesCommand,
+        httpCode: HttpStatus.OK,
+        type: UpdateUserHostAliasesResponseDto,
+        apiBody: UpdateUserHostAliasesBodyDto,
+    })
+    async updateUserHostAliases(
+        @Param() param: UpdateUserHostAliasesParamDto,
+        @Body() body: UpdateUserHostAliasesBodyDto,
+    ): Promise<UpdateUserHostAliasesResponseDto> {
+        const result = await this.usersService.updateUserHostAliases(param.userId, body.aliases);
+        return { response: errorHandler(result) };
     }
 
     @Endpoint({
