@@ -8,6 +8,7 @@ export * from './delete-user.command';
 export * from './get-all-users.command';
 export * from './get-by';
 export * from './get-user-accessible-nodes.command';
+export * from './get-user-host-aliases.command';
 
 export * from './get-user-by-uuid.command';
 
@@ -17,3 +18,4 @@ export * from './get-users-stream.command';
 export * from './resolve-user.command';
 export * from './tags';
 export * from './update-user.command';
+export * from './update-user-host-aliases.command';

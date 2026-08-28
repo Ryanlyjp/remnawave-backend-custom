@@ -27,6 +27,7 @@ import {
     GetAllTagsCommand,
     GetAllUsersCommand,
     GetUserAccessibleNodesCommand,
+    GetUserHostAliasesCommand,
     GetUserByEmailCommand,
     GetUserByIdCommand,
     GetUserByShortUuidCommand,
@@ -40,6 +41,7 @@ import {
     ResolveUserCommand,
     RevokeUserSubscriptionCommand,
     UpdateUserCommand,
+    UpdateUserHostAliasesCommand,
 } from '@libs/contracts/commands';
 import { ROLE } from '@libs/contracts/constants';
 
@@ -57,6 +59,8 @@ import {
     GetAllUsersResponseDto,
     GetUserAccessibleNodesRequestDto,
     GetUserAccessibleNodesResponseDto,
+    GetUserHostAliasesRequestDto,
+    GetUserHostAliasesResponseDto,
     GetUserByIdRequestDto,
     GetUserByIdResponseDto,
     GetUserByShortUuidRequestDto,
@@ -80,6 +84,9 @@ import {
     RevokeUserSubscriptionResponseDto,
     UpdateUserRequestDto,
     UpdateUserResponseDto,
+    UpdateUserHostAliasesBodyDto,
+    UpdateUserHostAliasesRequestDto,
+    UpdateUserHostAliasesResponseDto,
 } from '../dtos';
 import { GetUserByEmailResponseDto } from '../dtos/get-user-by-email.dto';
 import { GetUserByEmailRequestDto } from '../dtos/get-user-by-email.dto';
@@ -290,6 +297,42 @@ export class UsersController {
         return {
             response: data,
         };
+    }
+
+    @ApiNotFoundResponse({ description: 'User not found' })
+    @ApiOkResponse({
+        type: GetUserHostAliasesResponseDto,
+        description: 'Per-user Host aliases fetched successfully',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'UUID of the user', required: true })
+    @Endpoint({
+        command: GetUserHostAliasesCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async getUserHostAliases(
+        @Param() paramData: GetUserHostAliasesRequestDto,
+    ): Promise<GetUserHostAliasesResponseDto> {
+        const result = await this.usersService.getUserHostAliases(paramData.uuid);
+        return { response: errorHandler(result) };
+    }
+
+    @ApiNotFoundResponse({ description: 'User or Host not found' })
+    @ApiOkResponse({
+        type: UpdateUserHostAliasesResponseDto,
+        description: 'Per-user Host aliases replaced successfully',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'UUID of the user', required: true })
+    @Endpoint({
+        command: UpdateUserHostAliasesCommand,
+        httpCode: HttpStatus.OK,
+        apiBody: UpdateUserHostAliasesBodyDto,
+    })
+    async updateUserHostAliases(
+        @Param() paramData: UpdateUserHostAliasesRequestDto,
+        @Body() body: UpdateUserHostAliasesBodyDto,
+    ): Promise<UpdateUserHostAliasesResponseDto> {
+        const result = await this.usersService.updateUserHostAliases(paramData.uuid, body.aliases);
+        return { response: errorHandler(result) };
     }
 
     @ApiNotFoundResponse({

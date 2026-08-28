@@ -78,6 +78,7 @@ model Users {
   userSubscriptionRequestHistory UserSubscriptionRequestHistory[]
   userMetas                      UserMeta[]
   torrentBlockerReports          TorrentBlockerReports[]
+  hostAliases                    UserHostAliases[]
   traffic                        UserTraffic?
 
   externalSquad ExternalSquads? @relation(fields: [externalSquadUuid], references: [uuid], onDelete: SetNull)
@@ -304,8 +305,25 @@ model Hosts {
 
   nodes                  HostsToNodes[]
   excludedInternalSquads InternalSquadHostExclusions[]
+  userAliases            UserHostAliases[]
 
   @@map("hosts")
+}
+
+model UserHostAliases {
+  userId   BigInt @map("user_id")
+  hostUuid String @map("host_uuid") @db.Uuid
+  remark   String @map("remark") @db.VarChar(50)
+
+  createdAt DateTime @default(dbgenerated("now()")) @map("created_at")
+  updatedAt DateTime @default(dbgenerated("now()")) @updatedAt @map("updated_at")
+
+  user Users @relation(fields: [userId], references: [tId], onDelete: Cascade)
+  host Hosts @relation(fields: [hostUuid], references: [uuid], onDelete: Cascade)
+
+  @@id([userId, hostUuid])
+  @@index([hostUuid])
+  @@map("user_host_aliases")
 }
 
 model InternalSquadHostExclusions {

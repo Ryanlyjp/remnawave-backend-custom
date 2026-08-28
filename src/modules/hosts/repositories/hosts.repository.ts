@@ -172,6 +172,12 @@ export class HostsRepository implements ICrud<HostsEntity> {
         return await this.qb.kysely
             .selectFrom('hosts')
             .selectAll('hosts')
+            .leftJoin('userHostAliases', (join) =>
+                join
+                    .onRef('userHostAliases.hostUuid', '=', 'hosts.uuid')
+                    .on('userHostAliases.userId', '=', userId),
+            )
+            .select('userHostAliases.remark as userHostAlias')
             .where((eb) =>
                 eb.exists(
                     eb
