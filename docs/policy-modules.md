@@ -68,9 +68,7 @@ Rem can reuse shared routing logic by storing typed snippet records as **policy 
     { "snippet": "OUTBOUND_JP_AI" }
   ],
   "routing": {
-    "rules": [
-      { "snippet": "POLICY_SPLIT_NORMAL" }
-    ]
+    "rules": [{ "snippet": "POLICY_SPLIT_NORMAL" }]
   }
 }
 ```
@@ -101,3 +99,5 @@ Rem can reuse shared routing logic by storing typed snippet records as **policy 
 ```
 
 At runtime, Rem resolves `policyModules` into snippet placeholders, expands the snippet payloads, and only then injects users / returns computed config preview.
+
+Creating, updating, or deleting a snippet automatically queues a configuration reload for every profile that references the snippet. This applies to both `policyModules` references and legacy `{ "snippet": "..." }` placeholders. Profiles that do not reference the changed snippet are not reloaded.

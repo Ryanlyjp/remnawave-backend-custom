@@ -44,6 +44,7 @@ export class SnippetsService {
             }
 
             await this.snippetsRepository.deleteByName(name);
+            await this.restartAffectedProfiles(name, 'deleteSnippet');
 
             return ok(true);
         } catch (error) {
@@ -76,6 +77,7 @@ export class SnippetsService {
             });
 
             await this.snippetsRepository.create(snippetEntity);
+            await this.restartAffectedProfiles(name, 'createSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -128,6 +130,7 @@ export class SnippetsService {
             });
 
             await this.snippetsRepository.update(snippetEntity);
+            await this.restartAffectedProfiles(name, 'updateSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -155,19 +158,7 @@ export class SnippetsService {
 
     public async syncSnippet(name: string): Promise<TResult<boolean>> {
         try {
-            const affectedProfiles = await this.resolveAffectedProfiles(name);
-
-            for (const profileUuid of affectedProfiles) {
-                await this.nodesQueuesService.startAllNodesByProfile({
-                    profileUuid,
-                    emitter: 'syncSnippet',
-                    force: true,
-                });
-            }
-
-            this.logger.log(
-                `Snippet "${name}" sync queued for ${affectedProfiles.length} config profile(s)`,
-            );
+            await this.restartAffectedProfiles(name, 'syncSnippet');
 
             return ok(true);
         } catch (error) {
@@ -176,7 +167,23 @@ export class SnippetsService {
         }
     }
 
-    private async resolveAffectedProfiles(name: string): Promise<string[]> {
-        return await this.configProfilesRepository.getUuidsBySnippetName(name);
+    private async restartAffectedProfiles(name: string, emitter: string): Promise<void> {
+        const affectedProfiles = await this.configProfilesRepository.getUuidsBySnippetName(name);
+
+        if (affectedProfiles.length === 0) {
+            return;
+        }
+
+        this.logger.log(
+            `Snippet "${name}" sync queued for ${affectedProfiles.length} config profile(s)`,
+        );
+
+        for (const profileUuid of affectedProfiles) {
+            await this.nodesQueuesService.startAllNodesByProfile({
+                profileUuid,
+                emitter,
+                force: true,
+            });
+        }
     }
 }
