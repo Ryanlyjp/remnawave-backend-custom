@@ -5,17 +5,25 @@ import { Injectable, Logger } from '@nestjs/common';
 import { fail, ok, TResult } from '@common/types';
 import { ERRORS } from '@libs/contracts/constants/errors';
 
+import { NodesQueuesService } from '@queue/_nodes';
+
 import { PolicyModuleKind, PolicyModuleScope } from './constants/policy-module.constants';
 import { SnippetEntity } from './entities';
+import { configReferencesSnippet } from './helpers/config-references-snippet';
 import { validatePolicyModuleInput } from './helpers/policy-module-validator';
 import { GetSnippetsResponseModel } from './models';
+import { ConfigProfileRepository } from './repositories/config-profile.repository';
 import { SnippetsRepository } from './repositories/snippets.repository';
 
 @Injectable()
 export class SnippetsService {
     private readonly logger = new Logger(SnippetsService.name);
 
-    constructor(private readonly snippetsRepository: SnippetsRepository) {}
+    constructor(
+        private readonly snippetsRepository: SnippetsRepository,
+        private readonly configProfileRepository: ConfigProfileRepository,
+        private readonly nodesQueuesService: NodesQueuesService,
+    ) {}
 
     public async getSnippets(): Promise<TResult<GetSnippetsResponseModel>> {
         try {
@@ -37,6 +45,7 @@ export class SnippetsService {
             }
 
             await this.snippetsRepository.deleteByName(name);
+            await this.restartAffectedProfiles(name, 'deleteSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -69,6 +78,7 @@ export class SnippetsService {
             });
 
             await this.snippetsRepository.create(snippetEntity);
+            await this.restartAffectedProfiles(name, 'createSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -121,6 +131,7 @@ export class SnippetsService {
             });
 
             await this.snippetsRepository.update(snippetEntity);
+            await this.restartAffectedProfiles(name, 'updateSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -144,5 +155,31 @@ export class SnippetsService {
 
             return fail(ERRORS.UPDATE_SNIPPET_ERROR);
         }
+    }
+
+    private async restartAffectedProfiles(name: string, emitter: string): Promise<void> {
+        const configProfiles = await this.configProfileRepository.findByCriteria({});
+        const affectedProfiles = configProfiles.filter((profile) =>
+            configReferencesSnippet(profile.config, name),
+        );
+
+        if (affectedProfiles.length === 0) {
+            return;
+        }
+
+        this.logger.log(
+            `Snippet ${name} changed, restart nodes for profiles: ${affectedProfiles
+                .map((profile) => profile.uuid)
+                .join(', ')}`,
+        );
+
+        await Promise.all(
+            affectedProfiles.map((profile) =>
+                this.nodesQueuesService.startAllNodesByProfile({
+                    profileUuid: profile.uuid,
+                    emitter,
+                }),
+            ),
+        );
     }
 }
