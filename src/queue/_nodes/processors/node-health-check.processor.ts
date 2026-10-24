@@ -57,7 +57,19 @@ export class NodeHealthCheckQueueProcessor extends WorkerHost {
                             statResult.response,
                         );
                     case false:
-                        message = statResult.message ?? 'Unknown error';
+                        const legacyHealthResult = await this.axios.getNodeHealth(connectionOpts);
+
+                        if (legacyHealthResult.isOk && legacyHealthResult.response.isAlive) {
+                            return await this.handleConnectedNode(
+                                connectionOpts,
+                                nodeUuid,
+                                isConnected,
+                            );
+                        }
+
+                        message = legacyHealthResult.isOk
+                            ? 'Xray core is not alive'
+                            : (legacyHealthResult.message ?? statResult.message ?? 'Unknown error');
                         attempts++;
 
                         this.logger.warn(
@@ -89,44 +101,46 @@ export class NodeHealthCheckQueueProcessor extends WorkerHost {
         connectionOpts: INodeConnectionOpts,
         nodeUuid: string,
         isConnected: boolean,
-        stats: GetSystemStatsCommand.Response['response'],
+        stats?: GetSystemStatsCommand.Response['response'],
     ) {
-        if (stats.xrayInfo === null) {
-            this.logger.error(`Node ${nodeUuid} – xrayInfo is null`);
+        if (stats) {
+            if (stats.xrayInfo === null) {
+                this.logger.error(`Node ${nodeUuid} – xrayInfo is null`);
 
-            await this.commandBus.execute(
-                new UpdateNodeCommand({
-                    uuid: nodeUuid,
-                    isConnected: false,
-                    lastStatusChange: new Date(),
-                    lastStatusMessage: 'Required info is missing. Outdated version?',
-                }),
-            );
+                await this.commandBus.execute(
+                    new UpdateNodeCommand({
+                        uuid: nodeUuid,
+                        isConnected: false,
+                        lastStatusChange: new Date(),
+                        lastStatusMessage: 'Required info is missing. Outdated version?',
+                    }),
+                );
 
-            return;
-        }
+                return;
+            }
 
-        await this.rawCacheService.setMany([
-            {
-                key: CACHE_KEYS.NODE_SYSTEM_STATS(nodeUuid),
-                value: stats.system.stats,
-                ttlSeconds: CACHE_KEYS_TTL.NODE_SYSTEM_STATS,
-            },
-            {
-                key: CACHE_KEYS.NODE_XRAY_UPTIME(nodeUuid),
-                value: stats.xrayInfo.uptime,
-                ttlSeconds: CACHE_KEYS_TTL.NODE_XRAY_UPTIME,
-            },
-        ]);
+            await this.rawCacheService.setMany([
+                {
+                    key: CACHE_KEYS.NODE_SYSTEM_STATS(nodeUuid),
+                    value: stats.system.stats,
+                    ttlSeconds: CACHE_KEYS_TTL.NODE_SYSTEM_STATS,
+                },
+                {
+                    key: CACHE_KEYS.NODE_XRAY_UPTIME(nodeUuid),
+                    value: stats.xrayInfo.uptime,
+                    ttlSeconds: CACHE_KEYS_TTL.NODE_XRAY_UPTIME,
+                },
+            ]);
 
-        const reports = stats.plugins.torrentBlocker.reportsCount;
-        if (reports !== undefined && reports > 0) {
-            await this.nodesQueuesService.collectReports({
-                nodeUuid,
-                connectionOpts,
-            });
+            const reports = stats.plugins.torrentBlocker.reportsCount;
+            if (reports !== undefined && reports > 0) {
+                await this.nodesQueuesService.collectReports({
+                    nodeUuid,
+                    connectionOpts,
+                });
 
-            this.logger.log(`Node ${nodeUuid} has ${reports} reports, collecting reports...`);
+                this.logger.log(`Node ${nodeUuid} has ${reports} reports, collecting reports...`);
+            }
         }
 
         if (!isConnected) {
