@@ -227,7 +227,6 @@ export class UsersController {
         command: UpdateUserHostAliasesCommand,
         httpCode: HttpStatus.OK,
         type: UpdateUserHostAliasesResponseDto,
-        apiBody: UpdateUserHostAliasesBodyDto,
     })
     async updateUserHostAliases(
         @Param() param: UpdateUserHostAliasesParamDto,
