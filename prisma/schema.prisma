@@ -440,6 +440,7 @@ model ConfigProfiles {
   uuid         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   viewPosition Int      @default(autoincrement()) @map("view_position")
   name         String   @unique @map("name")
+  engine       String   @default("XRAY") @map("engine") @db.VarChar(16)
   tags         String[] @default([]) @map("tags")
   config       Json     @map("config")
 
@@ -564,7 +565,8 @@ model HostsToNodes {
 }
 
 model ConfigProfileSnippets {
-  name        String  @id @map("name") @db.VarChar(255)
+  name        String  @map("name") @db.VarChar(255)
+  engine      String  @default("XRAY") @map("engine") @db.VarChar(16)
   kind        String? @map("kind") @db.VarChar(32)
   scope       String? @map("scope") @db.VarChar(32)
   description String? @map("description") @db.VarChar(255)
@@ -572,6 +574,7 @@ model ConfigProfileSnippets {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@id([engine, name])
   @@map("config_profile_snippets")
 }
 

@@ -10,6 +10,7 @@ import { fail, ok, TResult } from '@common/types';
 import { diffInbounds } from '@common/utils/inbounds';
 import { CACHE_KEYS } from '@libs/contracts/constants';
 import { ERRORS } from '@libs/contracts/constants/errors';
+import { CoreEngine } from '@libs/contracts/models';
 
 import { NodesQueuesService } from '@queue/_nodes';
 
@@ -18,11 +19,13 @@ import { ConfigProfileWithInboundsAndNodesEntity } from './entities';
 import { ConfigProfileInboundEntity } from './entities/config-profile-inbound.entity';
 import { ConfigProfileEntity } from './entities/config-profile.entity';
 import { applyPolicyModules } from './helpers/apply-policy-modules';
+import { applySingboxPolicyModules, validateSingboxConfig } from './helpers/singbox-config';
 import { GetAllInboundsResponseModel } from './models';
 import { GetConfigProfileByUuidResponseModel } from './models/get-config-profile-by-uuid.response.model';
 import { GetConfigProfilesResponseModel } from './models/get-config-profiles.response.model';
 import { GetSnippetsQuery } from './queries/get-snippets';
 import { ConfigProfileRepository } from './repositories/config-profile.repository';
+import { SingboxDeploymentService } from './singbox-deployment.service';
 
 @Injectable()
 export class ConfigProfileService {
@@ -33,6 +36,7 @@ export class ConfigProfileService {
         private readonly nodesQueuesService: NodesQueuesService,
         private readonly queryBus: QueryBus,
         private readonly rawCache: RawCacheService,
+        private readonly singboxDeploymentService: SingboxDeploymentService,
     ) {}
 
     public async getConfigProfiles(): Promise<TResult<GetConfigProfilesResponseModel>> {
@@ -40,9 +44,11 @@ export class ConfigProfileService {
             const configProfiles = await this.configProfileRepository.getAllConfigProfiles();
 
             for (const configProfile of configProfiles) {
-                configProfile.config = new XRayConfig(
-                    configProfile.config as object,
-                ).getSortedConfig();
+                if (configProfile.engine === 'XRAY') {
+                    configProfile.config = new XRayConfig(
+                        configProfile.config as object,
+                    ).getSortedConfig();
+                }
             }
 
             const total = await this.configProfileRepository.getTotalConfigProfiles();
@@ -64,7 +70,11 @@ export class ConfigProfileService {
                 return fail(ERRORS.CONFIG_PROFILE_NOT_FOUND);
             }
 
-            configProfile.config = new XRayConfig(configProfile.config as object).getSortedConfig();
+            if (configProfile.engine === 'XRAY') {
+                configProfile.config = new XRayConfig(
+                    configProfile.config as object,
+                ).getSortedConfig();
+            }
 
             return ok(new GetConfigProfileByUuidResponseModel(configProfile));
         } catch (error) {
@@ -91,12 +101,18 @@ export class ConfigProfileService {
             }
 
             for (const snippet of snippetsResponse.response) {
-                snippetsMap.set(snippet.name, snippet.snippet);
+                if (snippet.engine === configProfile.engine) {
+                    snippetsMap.set(snippet.name, snippet.snippet);
+                }
             }
 
-            const config = applyPolicyModules(configProfile.config as object, snippetsMap);
-
-            configProfile.config = config.getSortedConfig();
+            configProfile.config =
+                configProfile.engine === 'XRAY'
+                    ? applyPolicyModules(
+                          configProfile.config as object,
+                          snippetsMap,
+                      ).getSortedConfig()
+                    : applySingboxPolicyModules(configProfile.config as object, snippetsMap);
 
             return ok(new GetConfigProfileByUuidResponseModel(configProfile));
         } catch (error) {
@@ -136,21 +152,28 @@ export class ConfigProfileService {
     public async createConfigProfile(
         name: string,
         config: object,
+        engine: CoreEngine,
     ): Promise<TResult<GetConfigProfileByUuidResponseModel>> {
         try {
             if (name === 'Default-Profile') {
                 return fail(ERRORS.RESERVED_CONFIG_PROFILE_NAME);
             }
 
-            const validatedConfig = new XRayConfig(config);
-            const sortedConfig = validatedConfig.getSortedConfig();
+            const validatedConfig =
+                engine === 'XRAY' ? new XRayConfig(config) : validateSingboxConfig(config);
+            const sortedConfig =
+                validatedConfig instanceof XRayConfig
+                    ? validatedConfig.getSortedConfig()
+                    : validatedConfig;
 
             const profileEntity = new ConfigProfileEntity({
                 name,
+                engine,
                 config: sortedConfig as object,
             });
 
-            const inbounds = validatedConfig.getAllInbounds();
+            const inbounds =
+                validatedConfig instanceof XRayConfig ? validatedConfig.getAllInbounds() : [];
 
             const inboundsEntities = inbounds.map(
                 (inbound) =>
@@ -210,7 +233,11 @@ export class ConfigProfileService {
 
             await this.updateConfigProfileTransactional(existingConfigProfile, uuid, name, config);
 
-            if (config) {
+            if (config && existingConfigProfile.engine === 'SINGBOX') {
+                await this.singboxDeploymentService.deployProfile(existingConfigProfile.uuid);
+            }
+
+            if (config && existingConfigProfile.engine === 'XRAY') {
                 // No need for now
                 // await this.commandBus.execute(new SyncActiveProfileCommand());
 
@@ -268,6 +295,12 @@ export class ConfigProfileService {
 
         if (config) {
             const existingInbounds = existingConfigProfile.inbounds;
+
+            if (existingConfigProfile.engine === 'SINGBOX') {
+                configProfileEntity.config = validateSingboxConfig(config);
+                await this.configProfileRepository.update(configProfileEntity);
+                return true;
+            }
 
             const validatedConfig = new XRayConfig(config);
 

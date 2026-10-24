@@ -3,6 +3,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TypedConfigService } from '@common/config/app-config';
 import { THostMapperOperation } from '@libs/contracts/models';
 
+import { buildTuicSubscriptionLink } from '@modules/config-profiles/helpers/singbox-config';
+import { ConfigProfileRepository } from '@modules/config-profiles/repositories/config-profile.repository';
+
 import { applyHostMapper } from '../host-mapper';
 import { ResolvedProxyConfig } from '../resolve-proxy/interfaces';
 
@@ -46,7 +49,10 @@ export class XrayGeneratorService {
     private readonly logger = new Logger(XrayGeneratorService.name);
     private readonly staticTuicLinks: string[];
 
-    constructor(configService: TypedConfigService) {
+    constructor(
+        private readonly configService: TypedConfigService,
+        private readonly configProfileRepository: ConfigProfileRepository,
+    ) {
         this.staticTuicLinks = configService.getOrThrow('CUSTOM_TUIC_SUBSCRIPTION_LINKS');
     }
 
@@ -59,7 +65,7 @@ export class XrayGeneratorService {
         try {
             const links = this.generateLinks(hosts, isExtendedClient);
             if (includeStaticTuicLinks) {
-                links.push(...this.getStaticTuicLinks());
+                links.push(...(await this.getTuicLinks()));
             }
             const joined = links.join('\n');
             return isBase64 ? Buffer.from(joined).toString('base64') : joined;
@@ -92,6 +98,37 @@ export class XrayGeneratorService {
 
     public getStaticTuicLinks(): string[] {
         return [...this.staticTuicLinks];
+    }
+
+    public async getTuicLinks(): Promise<string[]> {
+        const links = this.getStaticTuicLinks();
+
+        for (const target of this.configService.getOrThrow('CUSTOM_SINGBOX_TARGETS')) {
+            if (!target.subscriptionUrl) continue;
+
+            try {
+                const profile = await this.configProfileRepository.findFirstByCriteria({
+                    name: target.profileName,
+                    engine: 'SINGBOX',
+                });
+
+                if (!profile) {
+                    this.logger.warn(
+                        `Managed Sing-box profile not found for subscription: "${target.profileName}"`,
+                    );
+                    continue;
+                }
+
+                links.push(buildTuicSubscriptionLink(profile.config, target.subscriptionUrl));
+            } catch (error) {
+                this.logger.error(
+                    `Failed to build managed TUIC subscription link for "${target.profileName}"`,
+                    error,
+                );
+            }
+        }
+
+        return [...new Set(links)];
     }
 
     private generateLink(host: ResolvedProxyConfig): ShareLink | null {

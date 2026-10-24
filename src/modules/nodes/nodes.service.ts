@@ -45,6 +45,13 @@ export class NodesService {
         try {
             const { configProfile, ...nodeData } = body;
 
+            const requestedProfile = await this.queryBus.execute(
+                new GetConfigProfileByUuidQuery(configProfile.activeConfigProfileUuid),
+            );
+            if (!requestedProfile.isOk || requestedProfile.response.engine !== 'XRAY') {
+                return fail(ERRORS.XRAY_NODE_REQUIRES_XRAY_PROFILE);
+            }
+
             const nodeEntity = new NodesEntity({
                 ...nodeData,
                 address: nodeData.address.trim(),
@@ -65,6 +72,9 @@ export class NodesService {
                 );
 
                 if (configProfileResponse.isOk) {
+                    if (configProfileResponse.response.engine !== 'XRAY') {
+                        return fail(ERRORS.XRAY_NODE_REQUIRES_XRAY_PROFILE);
+                    }
                     const inbounds = configProfileResponse.response.inbounds;
 
                     const areAllInboundsFromConfigProfile = configProfile.activeInbounds.every(
@@ -261,6 +271,9 @@ export class NodesService {
                 );
 
                 if (configProfileResponse.isOk) {
+                    if (configProfileResponse.response.engine !== 'XRAY') {
+                        return fail(ERRORS.XRAY_NODE_REQUIRES_XRAY_PROFILE);
+                    }
                     const inbounds = configProfileResponse.response.inbounds;
 
                     const areAllInboundsFromConfigProfile = configProfile.activeInbounds.every(
@@ -498,6 +511,10 @@ export class NodesService {
 
             if (!configProfileResponse.isOk) {
                 return fail(ERRORS.CONFIG_PROFILE_NOT_FOUND);
+            }
+
+            if (configProfileResponse.response.engine !== 'XRAY') {
+                return fail(ERRORS.XRAY_NODE_REQUIRES_XRAY_PROFILE);
             }
 
             const inbounds = configProfileResponse.response.inbounds;

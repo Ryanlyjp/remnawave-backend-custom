@@ -10,6 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { TxKyselyService } from '@common/database';
 import { getKyselyUuid } from '@common/helpers';
 import { values } from '@common/helpers/kysely/values';
+import { CoreEngine } from '@libs/contracts/models';
 
 import { ConfigProfileConverter } from '../converters/config-profile.converter';
 import { ConfigProfileInboundWithSquadsEntity } from '../entities';
@@ -19,6 +20,9 @@ import { ConfigProfileEntity } from '../entities/config-profile.entity';
 
 const SNIPPET_USAGE_JSONPATH = `$ ? (
     @.snippets[*] == $name
+    || @.policyModules.outbounds[*] == $name
+    || @.policyModules.routingRules[*] == $name
+    || @.policyModules.balancers[*] == $name
     || @.outbounds[*].snippet == $name
     || @.routing.rules[*].snippet == $name
     || @.routing.balancers[*].snippet == $name
@@ -132,10 +136,11 @@ export class ConfigProfileRepository {
         return result.map((item) => new ConfigProfileWithInboundsAndNodesEntity(item));
     }
 
-    public async getUuidsBySnippetName(name: string): Promise<string[]> {
+    public async getUuidsBySnippetName(engine: CoreEngine, name: string): Promise<string[]> {
         const result = await this.qb.kysely
             .selectFrom('configProfiles')
             .select('configProfiles.uuid')
+            .where('configProfiles.engine', '=', engine)
             .where(
                 sql<boolean>`jsonb_path_exists(
                     ${sql.ref('config_profiles.config')},

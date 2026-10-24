@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { fail, ok, TResult } from '@common/types';
 import { ERRORS } from '@libs/contracts/constants/errors';
+import { CoreEngine } from '@libs/contracts/models';
 
 import { NodesQueuesService } from '@queue/_nodes';
 
@@ -13,6 +14,7 @@ import { validatePolicyModuleInput } from './helpers/policy-module-validator';
 import { GetSnippetsResponseModel } from './models';
 import { ConfigProfileRepository } from './repositories/config-profile.repository';
 import { SnippetsRepository } from './repositories/snippets.repository';
+import { SingboxDeploymentService } from './singbox-deployment.service';
 
 @Injectable()
 export class SnippetsService {
@@ -22,6 +24,7 @@ export class SnippetsService {
         private readonly snippetsRepository: SnippetsRepository,
         private readonly configProfilesRepository: ConfigProfileRepository,
         private readonly nodesQueuesService: NodesQueuesService,
+        private readonly singboxDeploymentService: SingboxDeploymentService,
     ) {}
 
     public async getSnippets(): Promise<TResult<GetSnippetsResponseModel>> {
@@ -35,16 +38,16 @@ export class SnippetsService {
         }
     }
 
-    public async deleteSnippetByName(name: string): Promise<TResult<boolean>> {
+    public async deleteSnippetByName(engine: CoreEngine, name: string): Promise<TResult<boolean>> {
         try {
-            const snippet = await this.snippetsRepository.findByName(name);
+            const snippet = await this.snippetsRepository.findByName(engine, name);
 
             if (!snippet) {
                 return fail(ERRORS.SNIPPET_NOT_FOUND);
             }
 
-            await this.snippetsRepository.deleteByName(name);
-            await this.restartAffectedProfiles(name, 'deleteSnippet');
+            await this.snippetsRepository.deleteByName(engine, name);
+            await this.restartAffectedProfiles(engine, name, 'deleteSnippet');
 
             return ok(true);
         } catch (error) {
@@ -56,12 +59,14 @@ export class SnippetsService {
     public async createSnippet(
         name: string,
         snippet: object,
+        engine: CoreEngine,
         kind?: PolicyModuleKind | null,
         scope?: PolicyModuleScope | null,
         description?: string | null,
     ): Promise<TResult<GetSnippetsResponseModel>> {
         try {
             validatePolicyModuleInput({
+                engine,
                 snippet,
                 kind,
                 scope,
@@ -70,6 +75,7 @@ export class SnippetsService {
 
             const snippetEntity = new SnippetEntity({
                 name,
+                engine,
                 kind,
                 scope,
                 description,
@@ -77,7 +83,7 @@ export class SnippetsService {
             });
 
             await this.snippetsRepository.create(snippetEntity);
-            await this.restartAffectedProfiles(name, 'createSnippet');
+            await this.restartAffectedProfiles(engine, name, 'createSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -103,19 +109,21 @@ export class SnippetsService {
     public async updateSnippet(
         name: string,
         snippet: object,
+        engine: CoreEngine,
         kind?: PolicyModuleKind | null,
         scope?: PolicyModuleScope | null,
         description?: string | null,
     ): Promise<TResult<GetSnippetsResponseModel>> {
         try {
             validatePolicyModuleInput({
+                engine,
                 snippet,
                 kind,
                 scope,
                 description,
             });
 
-            const existingSnippet = await this.snippetsRepository.findByName(name);
+            const existingSnippet = await this.snippetsRepository.findByName(engine, name);
 
             if (!existingSnippet) {
                 return fail(ERRORS.SNIPPET_NOT_FOUND);
@@ -123,6 +131,7 @@ export class SnippetsService {
 
             const snippetEntity = new SnippetEntity({
                 name,
+                engine,
                 kind,
                 scope,
                 description,
@@ -130,7 +139,7 @@ export class SnippetsService {
             });
 
             await this.snippetsRepository.update(snippetEntity);
-            await this.restartAffectedProfiles(name, 'updateSnippet');
+            await this.restartAffectedProfiles(engine, name, 'updateSnippet');
 
             return await this.getSnippets();
         } catch (error) {
@@ -156,9 +165,9 @@ export class SnippetsService {
         }
     }
 
-    public async syncSnippet(name: string): Promise<TResult<boolean>> {
+    public async syncSnippet(engine: CoreEngine, name: string): Promise<TResult<boolean>> {
         try {
-            await this.restartAffectedProfiles(name, 'syncSnippet');
+            await this.restartAffectedProfiles(engine, name, 'syncSnippet');
 
             return ok(true);
         } catch (error) {
@@ -167,8 +176,15 @@ export class SnippetsService {
         }
     }
 
-    private async restartAffectedProfiles(name: string, emitter: string): Promise<void> {
-        const affectedProfiles = await this.configProfilesRepository.getUuidsBySnippetName(name);
+    private async restartAffectedProfiles(
+        engine: CoreEngine,
+        name: string,
+        emitter: string,
+    ): Promise<void> {
+        const affectedProfiles = await this.configProfilesRepository.getUuidsBySnippetName(
+            engine,
+            name,
+        );
 
         if (affectedProfiles.length === 0) {
             return;
@@ -178,12 +194,18 @@ export class SnippetsService {
             `Snippet "${name}" sync queued for ${affectedProfiles.length} config profile(s)`,
         );
 
-        for (const profileUuid of affectedProfiles) {
-            await this.nodesQueuesService.startAllNodesByProfile({
-                profileUuid,
-                emitter,
-                force: true,
-            });
+        if (engine === 'XRAY') {
+            for (const profileUuid of affectedProfiles) {
+                await this.nodesQueuesService.startAllNodesByProfile({
+                    profileUuid,
+                    emitter,
+                    force: true,
+                });
+            }
+        } else {
+            for (const profileUuid of affectedProfiles) {
+                await this.singboxDeploymentService.deployProfile(profileUuid);
+            }
         }
     }
 }

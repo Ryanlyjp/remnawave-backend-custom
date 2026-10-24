@@ -1,9 +1,12 @@
 import { ConfigProfileSnippets, Prisma } from '@prisma/client';
 
+import { CoreEngine } from '@libs/contracts/models';
+
 import { PolicyModuleKind, PolicyModuleScope } from '../constants/policy-module.constants';
 
 export class SnippetEntity implements ConfigProfileSnippets {
     public name: string;
+    public engine: CoreEngine;
     public kind: PolicyModuleKind | null;
     public scope: PolicyModuleScope | null;
     public description: string | null;

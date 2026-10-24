@@ -1,3 +1,5 @@
+import { CoreEngine } from '@libs/contracts/models';
+
 import {
     POLICY_MODULE_KINDS,
     POLICY_MODULE_SCOPES,
@@ -6,6 +8,7 @@ import {
 } from '../constants/policy-module.constants';
 
 export interface PolicyModuleInput {
+    engine: CoreEngine;
     kind?: PolicyModuleKind | null;
     scope?: PolicyModuleScope | null;
     description?: string | null;
@@ -13,6 +16,7 @@ export interface PolicyModuleInput {
 }
 
 export const validatePolicyModuleInput = ({
+    engine,
     kind,
     scope,
     description,
@@ -22,7 +26,9 @@ export const validatePolicyModuleInput = ({
         throw new Error('Snippet cannot be empty');
     }
 
-    if (snippet.some((item) => !item || typeof item !== 'object' || Object.keys(item).length === 0)) {
+    if (
+        snippet.some((item) => !item || typeof item !== 'object' || Object.keys(item).length === 0)
+    ) {
         throw new Error('Snippet cannot contain empty objects');
     }
 
@@ -42,11 +48,20 @@ export const validatePolicyModuleInput = ({
         return;
     }
 
-    const validators: Record<PolicyModuleKind, (item: Record<string, unknown>) => boolean> = {
-        'routing-rule-set': (item) => 'type' in item || 'outboundTag' in item || 'balancerTag' in item,
-        'outbound-set': (item) => 'protocol' in item && 'tag' in item,
-        'balancer-set': (item) => 'tag' in item && ('selector' in item || 'strategy' in item),
-    };
+    const validators: Record<PolicyModuleKind, (item: Record<string, unknown>) => boolean> =
+        engine === 'XRAY'
+            ? {
+                  'routing-rule-set': (item) =>
+                      'type' in item || 'outboundTag' in item || 'balancerTag' in item,
+                  'outbound-set': (item) => 'protocol' in item && 'tag' in item,
+                  'balancer-set': (item) =>
+                      'tag' in item && ('selector' in item || 'strategy' in item),
+              }
+            : {
+                  'routing-rule-set': (item) => 'outbound' in item || 'action' in item,
+                  'outbound-set': (item) => 'type' in item && 'tag' in item,
+                  'balancer-set': () => false,
+              };
 
     const isValid = validators[kind];
 

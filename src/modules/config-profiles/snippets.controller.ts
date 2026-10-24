@@ -59,7 +59,10 @@ export class SnippetsController {
         httpCode: HttpStatus.ACCEPTED,
     })
     async syncSnippet(@Body() syncSnippetDto: SyncSnippetBodyDto) {
-        const result = await this.snippetsService.syncSnippet(syncSnippetDto.name);
+        const result = await this.snippetsService.syncSnippet(
+            syncSnippetDto.engine,
+            syncSnippetDto.name,
+        );
 
         errorHandler(result);
         return;
@@ -70,7 +73,10 @@ export class SnippetsController {
         httpCode: HttpStatus.NO_CONTENT,
     })
     async deleteSnippetByName(@Body() deleteSnippetByNameDto: DeleteSnippetBodyDto) {
-        const result = await this.snippetsService.deleteSnippetByName(deleteSnippetByNameDto.name);
+        const result = await this.snippetsService.deleteSnippetByName(
+            deleteSnippetByNameDto.engine,
+            deleteSnippetByNameDto.name,
+        );
 
         errorHandler(result);
         return;
@@ -90,6 +96,7 @@ export class SnippetsController {
         const result = await this.snippetsService.createSnippet(
             createSnippetDto.name,
             createSnippetDto.snippet,
+            createSnippetDto.engine,
             createSnippetDto.kind,
             createSnippetDto.scope,
             createSnippetDto.description,
@@ -115,6 +122,7 @@ export class SnippetsController {
         const result = await this.snippetsService.updateSnippet(
             updateSnippetDto.name,
             updateSnippetDto.snippet,
+            updateSnippetDto.engine,
             updateSnippetDto.kind,
             updateSnippetDto.scope,
             updateSnippetDto.description,

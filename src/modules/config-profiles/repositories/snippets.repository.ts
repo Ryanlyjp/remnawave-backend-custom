@@ -5,13 +5,13 @@ import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 
 import { TxKyselyService } from '@common/database';
-import { ICrudWithName } from '@common/types/crud-port';
+import { CoreEngine } from '@libs/contracts/models';
 
 import { SnippetsConverter } from '../converters/snippets.converter';
 import { SnippetEntity } from '../entities/snippet.entity';
 
 @Injectable()
-export class SnippetsRepository implements ICrudWithName<SnippetEntity> {
+export class SnippetsRepository {
     constructor(
         private readonly prisma: TransactionHost<TransactionalAdapterPrisma>,
         private readonly qb: TxKyselyService,
@@ -30,9 +30,9 @@ export class SnippetsRepository implements ICrudWithName<SnippetEntity> {
         return this.snippetsConverter.fromPrismaModelToEntity(result);
     }
 
-    public async findByName(name: string): Promise<SnippetEntity | null> {
+    public async findByName(engine: CoreEngine, name: string): Promise<SnippetEntity | null> {
         const result = await this.prisma.tx.configProfileSnippets.findUnique({
-            where: { name },
+            where: { engine_name: { engine, name } },
         });
         if (!result) {
             return null;
@@ -40,10 +40,10 @@ export class SnippetsRepository implements ICrudWithName<SnippetEntity> {
         return this.snippetsConverter.fromPrismaModelToEntity(result);
     }
 
-    public async update({ name, ...data }: Partial<SnippetEntity>): Promise<SnippetEntity> {
+    public async update({ name, engine, ...data }: SnippetEntity): Promise<SnippetEntity> {
         const result = await this.prisma.tx.configProfileSnippets.update({
             where: {
-                name,
+                engine_name: { engine, name },
             },
             data: {
                 ...data,
@@ -54,9 +54,9 @@ export class SnippetsRepository implements ICrudWithName<SnippetEntity> {
         return this.snippetsConverter.fromPrismaModelToEntity(result);
     }
 
-    public async deleteByName(name: string): Promise<boolean> {
+    public async deleteByName(engine: CoreEngine, name: string): Promise<boolean> {
         const result = await this.prisma.tx.configProfileSnippets.delete({
-            where: { name },
+            where: { engine_name: { engine, name } },
         });
         return result !== null;
     }

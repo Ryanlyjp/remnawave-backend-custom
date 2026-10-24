@@ -1,12 +1,15 @@
 import { ConfigProfiles } from '@prisma/client';
 import { JsonArray, JsonObject } from '@prisma/client/runtime/library';
 
+import { CoreEngine } from '@libs/contracts/models';
+
 import { ConfigProfileInboundEntity } from './config-profile-inbound.entity';
 
 export class ConfigProfileWithInboundsAndNodesEntity implements ConfigProfiles {
     public uuid: string;
     public viewPosition: number;
     public name: string;
+    public engine: CoreEngine;
     public tags: string[];
     public config: string | number | boolean | JsonObject | JsonArray | null | object;
 
@@ -21,7 +24,9 @@ export class ConfigProfileWithInboundsAndNodesEntity implements ConfigProfiles {
     public updatedAt: Date;
 
     constructor(
-        configProfileWithInboundsAndNodes: Partial<ConfigProfileWithInboundsAndNodesEntity>,
+        configProfileWithInboundsAndNodes: Partial<
+            Omit<ConfigProfileWithInboundsAndNodesEntity, 'engine'>
+        > & { engine?: string },
     ) {
         Object.assign(this, configProfileWithInboundsAndNodes);
         return this;

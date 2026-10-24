@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 
+import { ConfigProfileModule } from '@modules/config-profiles/config-profile.module';
+
 import { TEMPLATE_RENDERERS } from './generators';
 import { QUERIES } from './queries';
 import { RenderTemplatesService } from './render-templates.service';
@@ -10,7 +12,7 @@ import { SubscriptionTemplateController } from './subscription-template.controll
 import { SubscriptionTemplateConverter } from './subscription-template.converter';
 import { SubscriptionTemplateService } from './subscription-template.service';
 @Module({
-    imports: [CqrsModule],
+    imports: [CqrsModule, ConfigProfileModule],
     controllers: [SubscriptionTemplateController],
     providers: [
         SubscriptionTemplateService,

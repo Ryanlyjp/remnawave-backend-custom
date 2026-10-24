@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 
@@ -7,11 +8,12 @@ import { ConfigProfileConverter, SnippetsConverter } from './converters';
 import { QUERIES } from './queries';
 import { ConfigProfileRepository } from './repositories/config-profile.repository';
 import { SnippetsRepository } from './repositories/snippets.repository';
+import { SingboxDeploymentService } from './singbox-deployment.service';
 import { SnippetsController } from './snippets.controller';
 import { SnippetsService } from './snippets.service';
 
 @Module({
-    imports: [CqrsModule],
+    imports: [CqrsModule, HttpModule],
     controllers: [ConfigProfileController, SnippetsController],
     providers: [
         ConfigProfileRepository,
@@ -20,7 +22,9 @@ import { SnippetsService } from './snippets.service';
         SnippetsConverter,
         SnippetsService,
         SnippetsRepository,
+        SingboxDeploymentService,
         ...QUERIES,
     ],
+    exports: [ConfigProfileRepository],
 })
 export class ConfigProfileModule {}

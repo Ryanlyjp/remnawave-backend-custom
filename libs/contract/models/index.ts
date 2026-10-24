@@ -4,6 +4,7 @@ export * from './base-internal-squad.schema';
 export * from './base-stat.schema';
 export * from './config-profile-inbounds.schema';
 export * from './config-profile.schema';
+export * from './core-engine.schema';
 export * from './export-stream';
 export * from './extended-users.schema';
 export * from './external-squad.schema';

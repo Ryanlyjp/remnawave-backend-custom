@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { REST_API, SNIPPETS_ROUTES } from '../../../api';
 import { getEndpointDetails } from '../../../constants';
+import { CoreEngineSchema } from '../../../models';
 
 export namespace SyncSnippetCommand {
     export const url = REST_API.SNIPPETS.ACTIONS.SYNC;
@@ -24,6 +25,7 @@ export namespace SyncSnippetCommand {
                 /^[A-Za-z0-9_ -]+(\/[A-Za-z0-9_ -]+)*$/,
                 'Name can only contain letters, numbers, underscores, dashes, slashes and spaces',
             ),
+        engine: CoreEngineSchema.default('XRAY'),
     });
 
     export type RequestBody = z.infer<typeof RequestBodySchema>;

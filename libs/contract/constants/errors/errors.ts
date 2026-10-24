@@ -1304,4 +1304,9 @@ export const ERRORS = {
         message: 'Clone host error',
         httpCode: 500,
     },
+    XRAY_NODE_REQUIRES_XRAY_PROFILE: {
+        code: 'A259',
+        message: 'Remnawave Xray nodes can only use XRAY config profiles',
+        httpCode: 400,
+    },
 } as const;

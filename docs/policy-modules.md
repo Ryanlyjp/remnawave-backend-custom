@@ -2,11 +2,18 @@
 
 Rem can reuse shared routing logic by storing typed snippet records as **policy modules**.
 
+Every module and config profile has an `engine`: `XRAY` or `SINGBOX`. Module names are unique
+within an engine, so both engines may have a module named `POLICY_SPLIT_NORMAL` without sharing
+payloads or deployment targets.
+
 ## Supported kinds
 
 - `routing-rule-set` — reusable `routing.rules` fragments
 - `outbound-set` — reusable `outbounds` fragments
 - `balancer-set` — reusable `routing.balancers` fragments
+
+`balancer-set` is Xray-only. Xray routing modules use `outboundTag`; Sing-box routing modules use
+`outbound` or `action` and are inserted into `route.rules`.
 
 ## Supported scopes
 
@@ -20,6 +27,7 @@ Rem can reuse shared routing logic by storing typed snippet records as **policy 
 ```json
 {
   "name": "OUTBOUND_JP_AI",
+  "engine": "XRAY",
   "kind": "outbound-set",
   "scope": "shared",
   "description": "JP AI egress outbound",
@@ -38,6 +46,7 @@ Rem can reuse shared routing logic by storing typed snippet records as **policy 
 ```json
 {
   "name": "POLICY_SPLIT_NORMAL",
+  "engine": "XRAY",
   "kind": "routing-rule-set",
   "scope": "shared",
   "description": "Send AI / media domains to JP-AI",
@@ -101,3 +110,30 @@ Rem can reuse shared routing logic by storing typed snippet records as **policy 
 At runtime, Rem resolves `policyModules` into snippet placeholders, expands the snippet payloads, and only then injects users / returns computed config preview.
 
 Creating, updating, or deleting a snippet automatically queues a configuration reload for every profile that references the snippet. This applies to both `policyModules` references and legacy `{ "snippet": "..." }` placeholders. Profiles that do not reference the changed snippet are not reloaded.
+
+## Sing-box equivalent
+
+Create separate `SINGBOX` modules with equivalent routing intent; do not paste Xray JSON into them.
+
+```json
+{
+  "name": "POLICY_SPLIT_NORMAL",
+  "engine": "SINGBOX",
+  "kind": "routing-rule-set",
+  "scope": "shared",
+  "snippet": [
+    {
+      "domain_suffix": ["openai.com", "chatgpt.com", "byteoversea.com", "netflix.com"],
+      "outbound": "JP-AI"
+    }
+  ]
+}
+```
+
+A Sing-box profile selects only `SINGBOX` modules. On save, Rem expands `policyModules.outbounds`
+into `outbounds` and `policyModules.routingRules` into `route.rules`, then sends the full config to
+the Agent selected by `CUSTOM_SINGBOX_TARGETS`. The Agent validates the candidate with
+`sing-box check` before replacing the live config. An optional credential-free `subscriptionUrl`
+uses the first TUIC user's current UUID and password from that Profile when shared subscription
+links are generated, so a saved credential change cannot leave the server and subscription out
+of sync.

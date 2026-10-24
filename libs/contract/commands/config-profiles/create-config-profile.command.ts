@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { CONFIG_PROFILES_ROUTES, REST_API } from '../../api';
 import { getEndpointDetails } from '../../constants';
-import { ConfigProfileSchema } from '../../models';
+import { ConfigProfileSchema, CoreEngineSchema } from '../../models';
 
 export namespace CreateConfigProfileCommand {
     export const url = REST_API.CONFIG_PROFILES.CREATE;
@@ -25,6 +25,7 @@ export namespace CreateConfigProfileCommand {
                 'Name can only contain letters, numbers, underscores, dashes and spaces',
             ),
         config: z.looseObject({}),
+        engine: CoreEngineSchema.default('XRAY'),
     });
 
     export const ResponseSchema = z.object({

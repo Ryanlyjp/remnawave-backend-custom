@@ -1,9 +1,12 @@
 import { ConfigProfiles } from '@prisma/client';
 
+import { CoreEngine } from '@libs/contracts/models';
+
 export class ConfigProfileEntity implements ConfigProfiles {
     public uuid: string;
     public viewPosition: number;
     public name: string;
+    public engine: CoreEngine;
     public tags: string[];
     public config: object;
 

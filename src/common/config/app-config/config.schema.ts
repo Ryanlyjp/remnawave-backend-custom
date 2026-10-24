@@ -137,6 +137,37 @@ export const configSchema = z
 
                 return [...new Set(parsed)];
             }),
+        CUSTOM_SINGBOX_TARGETS: z
+            .string()
+            .default('[]')
+            .transform((val) => {
+                try {
+                    return JSON.parse(val) as unknown;
+                } catch {
+                    throw new Error('CUSTOM_SINGBOX_TARGETS must be a valid JSON array');
+                }
+            })
+            .pipe(
+                z.array(
+                    z.object({
+                        profileName: z.string().min(2).max(30),
+                        url: z.url().transform((url) => url.replace(/\/$/, '')),
+                        token: z.string().min(32),
+                        subscriptionUrl: z
+                            .url()
+                            .refine((value) => {
+                                const url = new URL(value);
+                                return (
+                                    url.protocol === 'tuic:' &&
+                                    !!url.hostname &&
+                                    !url.username &&
+                                    !url.password
+                                );
+                            }, 'subscriptionUrl must be a credential-free tuic:// URL')
+                            .optional(),
+                    }),
+                ),
+            ),
         REMNAWAVE_BRANCH: z.string().default('dev'),
         SERVICE_CLEAN_USAGE_HISTORY: booleanString('false'),
         SERVICE_DISABLE_USER_USAGE_RECORDS: booleanString('false'),

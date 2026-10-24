@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { REST_API, SNIPPETS_ROUTES } from '../../api';
 import { getEndpointDetails } from '../../constants';
-import { SnippetsSchema } from '../../models';
+import { CoreEngineSchema, SnippetsSchema } from '../../models';
 
 export namespace CreateSnippetCommand {
     export const url = REST_API.SNIPPETS.CREATE;
@@ -24,6 +24,7 @@ export namespace CreateSnippetCommand {
                 /^[A-Za-z0-9_ -]+(\/[A-Za-z0-9_ -]+)*$/,
                 'Name can only contain letters, numbers, underscores, dashes, slashes and spaces',
             ),
+        engine: CoreEngineSchema.default('XRAY'),
         kind: z.enum(['routing-rule-set', 'outbound-set', 'balancer-set']).optional().nullable(),
         scope: z.enum(['shared', 'internal']).optional().nullable(),
         description: z.string().max(255).optional().nullable(),
