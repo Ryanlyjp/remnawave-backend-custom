@@ -4,7 +4,8 @@ Rem can reuse shared routing logic by storing typed snippet records as **policy 
 
 Every module and config profile has an `engine`: `XRAY` or `SINGBOX`. Module names are unique
 within an engine, so both engines may have a module named `POLICY_SPLIT_NORMAL` without sharing
-payloads or deployment targets.
+payloads or deployment targets. Node configuration generation also filters modules by the
+profile engine, so an identically named Sing-box module cannot replace an Xray module.
 
 ## Supported kinds
 

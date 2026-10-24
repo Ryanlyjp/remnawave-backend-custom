@@ -7,10 +7,10 @@ import { XRayConfig } from '@common/helpers/xray-config/xray-config.validator';
 import { fail, ok, TResult } from '@common/types';
 import { ERRORS } from '@libs/contracts/constants';
 
+import { applyPolicyModules } from '@modules/config-profiles/helpers/apply-policy-modules';
 import { GetConfigProfileByUuidQuery } from '@modules/config-profiles/queries/get-config-profile-by-uuid';
 import { GetSnippetsQuery } from '@modules/config-profiles/queries/get-snippets';
 import { UsersRepository } from '@modules/users/repositories/users.repository';
-import { applyPolicyModules } from '@modules/config-profiles/helpers/apply-policy-modules';
 
 import {
     GetPreparedConfigWithUsersQuery,
@@ -48,7 +48,9 @@ export class GetPreparedConfigWithUsersHandler implements IQueryHandler<
             }
 
             for (const snippet of snippetsResponse.response) {
-                snippetsMap.set(snippet.name, snippet.snippet);
+                if (snippet.engine === configProfile.response.engine) {
+                    snippetsMap.set(snippet.name, snippet.snippet);
+                }
             }
 
             const activeInboundsTags = new Set(activeInbounds.map((inbound) => inbound.tag));
