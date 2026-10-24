@@ -46,6 +46,7 @@ export class RenderTemplatesService {
                         formattedHosts,
                         SUBSCRIPTION_CONFIG_TYPES['XRAY_BASE64'].isBase64,
                         srrContext.isExtendedClient,
+                        fallbackOptions === undefined,
                     ),
                     contentType: SUBSCRIPTION_CONFIG_TYPES['XRAY_BASE64'].CONTENT_TYPE,
                 };

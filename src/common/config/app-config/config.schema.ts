@@ -106,6 +106,37 @@ export const configSchema = z
                 }
             })
             .pipe(z.record(z.string(), z.string())),
+        CUSTOM_TUIC_SUBSCRIPTION_LINKS: z
+            .string()
+            .default('[]')
+            .transform((val) => {
+                let parsed: unknown;
+
+                try {
+                    parsed = JSON.parse(val);
+                } catch {
+                    throw new Error('CUSTOM_TUIC_SUBSCRIPTION_LINKS must be a valid JSON array');
+                }
+
+                if (!Array.isArray(parsed) || !parsed.every((link) => typeof link === 'string')) {
+                    throw new Error('CUSTOM_TUIC_SUBSCRIPTION_LINKS must be a valid JSON array');
+                }
+
+                for (const link of parsed) {
+                    try {
+                        const url = new URL(link);
+                        if (url.protocol !== 'tuic:' || !url.hostname) {
+                            throw new Error();
+                        }
+                    } catch {
+                        throw new Error(
+                            'CUSTOM_TUIC_SUBSCRIPTION_LINKS must contain only valid tuic:// links',
+                        );
+                    }
+                }
+
+                return [...new Set(parsed)];
+            }),
         REMNAWAVE_BRANCH: z.string().default('dev'),
         SERVICE_CLEAN_USAGE_HISTORY: booleanString('false'),
         SERVICE_DISABLE_USER_USAGE_RECORDS: booleanString('false'),

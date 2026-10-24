@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { TypedConfigService } from '@common/config/app-config';
 import { THostMapperOperation } from '@libs/contracts/models';
 
 import { applyHostMapper } from '../host-mapper';
@@ -43,14 +44,23 @@ interface Hysteria2FinalMask {
 @Injectable()
 export class XrayGeneratorService {
     private readonly logger = new Logger(XrayGeneratorService.name);
+    private readonly staticTuicLinks: string[];
+
+    constructor(configService: TypedConfigService) {
+        this.staticTuicLinks = configService.getOrThrow('CUSTOM_TUIC_SUBSCRIPTION_LINKS');
+    }
 
     public async generateConfig(
         hosts: ResolvedProxyConfig[],
         isBase64: boolean,
         isExtendedClient: boolean,
+        includeStaticTuicLinks: boolean,
     ): Promise<string> {
         try {
             const links = this.generateLinks(hosts, isExtendedClient);
+            if (includeStaticTuicLinks) {
+                links.push(...this.getStaticTuicLinks());
+            }
             const joined = links.join('\n');
             return isBase64 ? Buffer.from(joined).toString('base64') : joined;
         } catch (error) {
@@ -78,6 +88,10 @@ export class XrayGeneratorService {
         }
 
         return links;
+    }
+
+    public getStaticTuicLinks(): string[] {
+        return [...this.staticTuicLinks];
     }
 
     private generateLink(host: ResolvedProxyConfig): ShareLink | null {
