@@ -140,6 +140,8 @@ links are generated, so a saved credential change cannot leave the server and su
 of sync.
 
 Sing-box inbounds are synchronized into the same selectable inbound list used by internal squads.
+A controller startup also synchronizes stored inbounds with the parser for the Profile's engine, so
+restarting Remnawave preserves Sing-box inbound UUIDs and their existing squad selections.
 A managed TUIC link is included only when the requesting user belongs to a squad that has selected
 that Profile's TUIC inbound. The same visibility check is used for Base64/V2Ray clients and Mihomo
 clients; Mihomo receives a native `type: tuic` proxy entry. Credentials remain shared by the

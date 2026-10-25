@@ -4,6 +4,11 @@ import consola from 'consola';
 import { XRayConfig } from '@common/helpers/xray-config';
 import { diffInbounds } from '@common/utils/inbounds';
 
+import {
+    getSingboxInbounds,
+    validateSingboxConfig,
+} from '@modules/config-profiles/helpers/singbox-config';
+
 export async function syncInbounds(prisma: PrismaClient) {
     consola.start('Syncing inbounds...');
 
@@ -12,7 +17,10 @@ export async function syncInbounds(prisma: PrismaClient) {
     for (const configProfile of configProfiles) {
         consola.start(`Syncing ${configProfile.name}...`);
 
-        const validatedConfig = new XRayConfig(configProfile.config as object);
+        const inbounds =
+            configProfile.engine === 'SINGBOX'
+                ? getSingboxInbounds(validateSingboxConfig(configProfile.config as object))
+                : new XRayConfig(configProfile.config as object).getAllInbounds();
 
         const existingInbounds = await prisma.configProfileInbounds.findMany({
             where: {
@@ -20,10 +28,7 @@ export async function syncInbounds(prisma: PrismaClient) {
             },
         });
 
-        const { toAdd, toRemove, toUpdate } = diffInbounds(
-            existingInbounds,
-            validatedConfig.getAllInbounds(),
-        );
+        const { toAdd, toRemove, toUpdate } = diffInbounds(existingInbounds, inbounds);
 
         if (toRemove.length) {
             consola.info(`Removing inbounds: ${toRemove.map((i) => i.tag).join(', ')}`);
