@@ -19,7 +19,11 @@ import { ConfigProfileWithInboundsAndNodesEntity } from './entities';
 import { ConfigProfileInboundEntity } from './entities/config-profile-inbound.entity';
 import { ConfigProfileEntity } from './entities/config-profile.entity';
 import { applyPolicyModules } from './helpers/apply-policy-modules';
-import { applySingboxPolicyModules, validateSingboxConfig } from './helpers/singbox-config';
+import {
+    applySingboxPolicyModules,
+    getSingboxInbounds,
+    validateSingboxConfig,
+} from './helpers/singbox-config';
 import { GetAllInboundsResponseModel } from './models';
 import { GetConfigProfileByUuidResponseModel } from './models/get-config-profile-by-uuid.response.model';
 import { GetConfigProfilesResponseModel } from './models/get-config-profiles.response.model';
@@ -173,7 +177,9 @@ export class ConfigProfileService {
             });
 
             const inbounds =
-                validatedConfig instanceof XRayConfig ? validatedConfig.getAllInbounds() : [];
+                validatedConfig instanceof XRayConfig
+                    ? validatedConfig.getAllInbounds()
+                    : getSingboxInbounds(validatedConfig);
 
             const inboundsEntities = inbounds.map(
                 (inbound) =>
@@ -297,36 +303,44 @@ export class ConfigProfileService {
             const existingInbounds = existingConfigProfile.inbounds;
 
             if (existingConfigProfile.engine === 'SINGBOX') {
-                configProfileEntity.config = validateSingboxConfig(config);
-                await this.configProfileRepository.update(configProfileEntity);
-                return true;
+                const validatedConfig = validateSingboxConfig(config);
+                const inboundsEntities = getSingboxInbounds(validatedConfig).map(
+                    (inbound) =>
+                        new ConfigProfileInboundEntity({
+                            ...inbound,
+                            profileUuid: existingConfigProfile.uuid,
+                        }),
+                );
+
+                await this.syncInbounds(existingInbounds, inboundsEntities);
+                configProfileEntity.config = validatedConfig;
+            } else {
+                const validatedConfig = new XRayConfig(config);
+
+                validatedConfig.cleanInboundClients(false);
+                validatedConfig.fixIncorrectServerNames();
+                validatedConfig.validateOutbounds();
+
+                const sortedConfig = validatedConfig.getSortedConfig();
+                const inbounds = validatedConfig.getAllInbounds();
+
+                const inboundsEntities = inbounds.map(
+                    (inbound) =>
+                        new ConfigProfileInboundEntity({
+                            profileUuid: existingConfigProfile.uuid,
+                            tag: inbound.tag,
+                            type: inbound.type,
+                            network: inbound.network,
+                            security: inbound.security,
+                            port: inbound.port,
+                            rawInbound: inbound.rawInbound as unknown as object,
+                        }),
+                );
+
+                await this.syncInbounds(existingInbounds, inboundsEntities);
+
+                configProfileEntity.config = sortedConfig as object;
             }
-
-            const validatedConfig = new XRayConfig(config);
-
-            validatedConfig.cleanInboundClients(false);
-            validatedConfig.fixIncorrectServerNames();
-            validatedConfig.validateOutbounds();
-
-            const sortedConfig = validatedConfig.getSortedConfig();
-            const inbounds = validatedConfig.getAllInbounds();
-
-            const inboundsEntities = inbounds.map(
-                (inbound) =>
-                    new ConfigProfileInboundEntity({
-                        profileUuid: existingConfigProfile.uuid,
-                        tag: inbound.tag,
-                        type: inbound.type,
-                        network: inbound.network,
-                        security: inbound.security,
-                        port: inbound.port,
-                        rawInbound: inbound.rawInbound as unknown as object,
-                    }),
-            );
-
-            await this.syncInbounds(existingInbounds, inboundsEntities);
-
-            configProfileEntity.config = sortedConfig as object;
         }
 
         await this.configProfileRepository.update(configProfileEntity);

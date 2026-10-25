@@ -120,6 +120,27 @@ export class ConfigProfileRepository {
         return await this.prisma.tx.configProfiles.count();
     }
 
+    public async isProfileAvailableToUser(profileUuid: string, userId: bigint): Promise<boolean> {
+        const result = await this.qb.kysely
+            .selectFrom('configProfileInbounds')
+            .innerJoin(
+                'internalSquadInbounds',
+                'internalSquadInbounds.inboundUuid',
+                'configProfileInbounds.uuid',
+            )
+            .innerJoin(
+                'internalSquadMembers',
+                'internalSquadMembers.internalSquadUuid',
+                'internalSquadInbounds.internalSquadUuid',
+            )
+            .where('configProfileInbounds.profileUuid', '=', getKyselyUuid(profileUuid))
+            .where('internalSquadMembers.userId', '=', userId)
+            .select('configProfileInbounds.uuid')
+            .executeTakeFirst();
+
+        return result !== undefined;
+    }
+
     public async getAllConfigProfiles(): Promise<ConfigProfileWithInboundsAndNodesEntity[]> {
         const result = await this.qb.kysely
             .selectFrom('configProfiles')

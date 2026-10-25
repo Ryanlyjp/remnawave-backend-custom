@@ -13,6 +13,15 @@ interface SingboxConfig extends Record<string, unknown> {
     policyModules?: PolicyModuleRefs;
 }
 
+interface SingboxInboundSummary {
+    network: null;
+    port: number | null;
+    rawInbound: Record<string, unknown>;
+    security: null;
+    tag: string;
+    type: string;
+}
+
 const resolveModules = (
     names: string[],
     snippetsMap: Map<string, unknown>,
@@ -46,6 +55,22 @@ export const validateSingboxConfig = (rawConfig: object): SingboxConfig => {
 
     return config;
 };
+
+export const getSingboxInbounds = (config: SingboxConfig): SingboxInboundSummary[] =>
+    config.inbounds!.map((inbound) => {
+        if (typeof inbound.tag !== 'string' || typeof inbound.type !== 'string') {
+            throw new Error('Sing-box inbounds must contain string tag and type fields');
+        }
+
+        return {
+            tag: inbound.tag,
+            type: inbound.type,
+            network: null,
+            security: null,
+            port: typeof inbound.listen_port === 'number' ? inbound.listen_port : null,
+            rawInbound: inbound,
+        };
+    });
 
 export const applySingboxPolicyModules = (
     rawConfig: object,

@@ -61,11 +61,12 @@ export class XrayGeneratorService {
         isBase64: boolean,
         isExtendedClient: boolean,
         includeStaticTuicLinks: boolean,
+        userId: bigint,
     ): Promise<string> {
         try {
             const links = this.generateLinks(hosts, isExtendedClient);
             if (includeStaticTuicLinks) {
-                links.push(...(await this.getTuicLinks()));
+                links.push(...(await this.getTuicLinks(userId)));
             }
             const joined = links.join('\n');
             return isBase64 ? Buffer.from(joined).toString('base64') : joined;
@@ -100,7 +101,7 @@ export class XrayGeneratorService {
         return [...this.staticTuicLinks];
     }
 
-    public async getTuicLinks(): Promise<string[]> {
+    public async getTuicLinks(userId: bigint): Promise<string[]> {
         const links = this.getStaticTuicLinks();
 
         for (const target of this.configService.getOrThrow('CUSTOM_SINGBOX_TARGETS')) {
@@ -116,6 +117,15 @@ export class XrayGeneratorService {
                     this.logger.warn(
                         `Managed Sing-box profile not found for subscription: "${target.profileName}"`,
                     );
+                    continue;
+                }
+
+                if (
+                    !(await this.configProfileRepository.isProfileAvailableToUser(
+                        profile.uuid,
+                        userId,
+                    ))
+                ) {
                     continue;
                 }
 

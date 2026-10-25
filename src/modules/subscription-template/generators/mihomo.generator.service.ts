@@ -133,6 +133,7 @@ export class MihomoGeneratorService {
         isStash = false,
         isExtendedClient = false,
         overrideTemplateName?: string,
+        tuicLinks: string[] = [],
     ): Promise<string> {
         try {
             const templateType = isStash ? 'STASH' : 'MIHOMO';
@@ -165,11 +166,45 @@ export class MihomoGeneratorService {
                 proxyRemarks.push(host.finalRemark);
             }
 
+            for (const link of tuicLinks) {
+                const node = this.buildTuicNode(link);
+                if (!node) continue;
+
+                data.proxies.push(node);
+                proxyRemarks.push(node.name);
+            }
+
             return await this.renderConfig(data, proxyRemarks, yamlConfig);
         } catch (error) {
             this.logger.error('Error generating clash config:', error);
             return '';
         }
+    }
+
+    private buildTuicNode(link: string): ProxyNode | null {
+        const url = new URL(link);
+        if (url.protocol !== 'tuic:') return null;
+
+        const port = Number(url.port);
+        if (!Number.isInteger(port)) return null;
+
+        const alpn = url.searchParams.get('alpn');
+        const allowInsecure =
+            url.searchParams.get('allowInsecure') ?? url.searchParams.get('insecure');
+
+        return {
+            name: decodeURIComponent(url.hash.slice(1)),
+            type: 'tuic',
+            server: url.hostname,
+            port,
+            udp: true,
+            uuid: decodeURIComponent(url.username),
+            password: decodeURIComponent(url.password),
+            sni: url.searchParams.get('sni') ?? undefined,
+            alpn: alpn ? alpn.split(',') : undefined,
+            'skip-cert-verify': allowInsecure === '1' || allowInsecure === 'true',
+            'congestion-controller': url.searchParams.get('congestion_control') ?? undefined,
+        };
     }
 
     private buildProxyNode(host: ResolvedProxyConfig, isExtendedClient: boolean): ProxyNode | null {

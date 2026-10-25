@@ -47,6 +47,7 @@ export class RenderTemplatesService {
                         SUBSCRIPTION_CONFIG_TYPES['XRAY_BASE64'].isBase64,
                         srrContext.isExtendedClient,
                         fallbackOptions === undefined,
+                        user.id,
                     ),
                     contentType: SUBSCRIPTION_CONFIG_TYPES['XRAY_BASE64'].CONTENT_TYPE,
                 };
@@ -67,6 +68,9 @@ export class RenderTemplatesService {
                         false,
                         srrContext.isExtendedClient,
                         srrContext.overrideTemplateName,
+                        fallbackOptions === undefined
+                            ? await this.xrayGeneratorService.getTuicLinks(user.id)
+                            : [],
                     ),
                     contentType: SUBSCRIPTION_CONFIG_TYPES['MIHOMO'].CONTENT_TYPE,
                 };
