@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { REST_API, USERS_ROUTES } from '../../api';
 import { getEndpointDetails } from '../../constants';
 import { numberParamSchema } from '../../models';
-import { UserHostAliasSchema } from './get-user-host-aliases.command';
+import {
+    UserHostAliasSchema,
+    UserSingboxProfileAliasSchema,
+} from './get-user-host-aliases.command';
 
 export namespace UpdateUserHostAliasesCommand {
     export const url = REST_API.USERS.HOST_ALIASES;
@@ -31,6 +34,15 @@ export namespace UpdateUserHostAliasesCommand {
                 }),
             )
             .max(10000),
+        singboxAliases: z
+            .array(
+                z.object({
+                    configProfileUuid: z.string().uuid(),
+                    remark: z.string().trim().min(1).max(50),
+                }),
+            )
+            .max(10000)
+            .optional(),
     });
 
     export type RequestBody = z.infer<typeof RequestBodySchema>;
@@ -39,6 +51,7 @@ export namespace UpdateUserHostAliasesCommand {
         response: z.object({
             userId: z.number(),
             hosts: z.array(UserHostAliasSchema),
+            singboxProfiles: z.array(UserSingboxProfileAliasSchema),
         }),
     });
 

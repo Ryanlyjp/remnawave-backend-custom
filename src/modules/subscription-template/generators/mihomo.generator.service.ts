@@ -1,3 +1,5 @@
+import type { TuicSubscriptionNode } from './xray.generator.service';
+
 import { dump } from 'js-yaml';
 import _ from 'lodash';
 
@@ -133,7 +135,7 @@ export class MihomoGeneratorService {
         isStash = false,
         isExtendedClient = false,
         overrideTemplateName?: string,
-        tuicLinks: string[] = [],
+        tuicNodes: TuicSubscriptionNode[] = [],
     ): Promise<string> {
         try {
             const templateType = isStash ? 'STASH' : 'MIHOMO';
@@ -150,24 +152,45 @@ export class MihomoGeneratorService {
 
             const data: MihomoData = { proxies: [], rules: [] };
             const proxyRemarks: string[] = [];
+            const insertedTuicNodes = new Set<TuicSubscriptionNode>();
+            const appendTuicNodes = (
+                field: 'insertAfterHostUuid' | 'insertBeforeHostUuid',
+                uuid: string,
+            ) => {
+                for (const tuicNode of tuicNodes) {
+                    if (tuicNode[field] !== uuid || insertedTuicNodes.has(tuicNode)) continue;
+                    const node = this.buildTuicNode(tuicNode.link);
+                    if (!node) continue;
+                    data.proxies.push(node);
+                    proxyRemarks.push(node.name);
+                    insertedTuicNodes.add(tuicNode);
+                }
+            };
 
             for (const host of hosts) {
-                if (!includeHidden && host.metadata.isHidden) continue;
-                if (host.metadata.excludeFromSubscriptionTypes.includes(templateType)) continue;
+                appendTuicNodes('insertBeforeHostUuid', host.metadata.uuid);
 
-                if (UNSUPPORTED_TRANSPORTS.has(host.transport)) continue;
-                if (UNSUPPORTED_PROTOCOLS.has(host.protocol)) continue;
-                if (isStash && host.transport === 'xhttp') continue;
+                const shouldIncludeHost =
+                    (includeHidden || !host.metadata.isHidden) &&
+                    !host.metadata.excludeFromSubscriptionTypes.includes(templateType) &&
+                    !UNSUPPORTED_TRANSPORTS.has(host.transport) &&
+                    !UNSUPPORTED_PROTOCOLS.has(host.protocol) &&
+                    !(isStash && host.transport === 'xhttp');
 
-                const node = this.buildProxyNode(host, isExtendedClient);
-                if (!node) continue;
+                if (shouldIncludeHost) {
+                    const node = this.buildProxyNode(host, isExtendedClient);
+                    if (node) {
+                        data.proxies.push(node);
+                        proxyRemarks.push(host.finalRemark);
+                    }
+                }
 
-                data.proxies.push(node);
-                proxyRemarks.push(host.finalRemark);
+                appendTuicNodes('insertAfterHostUuid', host.metadata.uuid);
             }
 
-            for (const link of tuicLinks) {
-                const node = this.buildTuicNode(link);
+            for (const tuicNode of tuicNodes) {
+                if (insertedTuicNodes.has(tuicNode)) continue;
+                const node = this.buildTuicNode(tuicNode.link);
                 if (!node) continue;
 
                 data.proxies.push(node);

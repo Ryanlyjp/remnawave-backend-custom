@@ -232,7 +232,11 @@ export class UsersController {
         @Param() param: UpdateUserHostAliasesParamDto,
         @Body() body: UpdateUserHostAliasesBodyDto,
     ): Promise<UpdateUserHostAliasesResponseDto> {
-        const result = await this.usersService.updateUserHostAliases(param.userId, body.aliases);
+        const result = await this.usersService.updateUserHostAliases(
+            param.userId,
+            body.aliases,
+            body.singboxAliases,
+        );
         return { response: errorHandler(result) };
     }
 

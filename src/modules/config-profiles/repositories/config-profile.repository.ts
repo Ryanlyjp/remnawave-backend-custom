@@ -141,6 +141,20 @@ export class ConfigProfileRepository {
         return result !== undefined;
     }
 
+    public async getUserAlias(profileUuid: string, userId: bigint): Promise<string | null> {
+        const alias = await this.prisma.tx.userSingboxProfileAliases.findUnique({
+            where: {
+                userId_configProfileUuid: {
+                    userId,
+                    configProfileUuid: profileUuid,
+                },
+            },
+            select: { remark: true },
+        });
+
+        return alias?.remark ?? null;
+    }
+
     public async getAllConfigProfiles(): Promise<ConfigProfileWithInboundsAndNodesEntity[]> {
         const result = await this.qb.kysely
             .selectFrom('configProfiles')

@@ -69,7 +69,7 @@ export class RenderTemplatesService {
                         srrContext.isExtendedClient,
                         srrContext.overrideTemplateName,
                         fallbackOptions === undefined
-                            ? await this.xrayGeneratorService.getTuicLinks(user.id)
+                            ? await this.xrayGeneratorService.getTuicNodes(user.id)
                             : [],
                     ),
                     contentType: SUBSCRIPTION_CONFIG_TYPES['MIHOMO'].CONTENT_TYPE,

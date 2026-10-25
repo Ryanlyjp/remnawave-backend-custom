@@ -76,6 +76,7 @@ model Users {
   userMetas                      UserMeta[]
   torrentBlockerReports          TorrentBlockerReports[]
   hostAliases                    UserHostAliases[]
+  singboxProfileAliases          UserSingboxProfileAliases[]
   traffic                        UserTraffic?
 
   externalSquad ExternalSquads? @relation(fields: [externalSquadUuid], references: [uuid], onDelete: SetNull)
@@ -331,6 +332,22 @@ model UserHostAliases {
   @@map("user_host_aliases")
 }
 
+model UserSingboxProfileAliases {
+  userId            BigInt @map("user_id")
+  configProfileUuid String @map("config_profile_uuid") @db.Uuid
+  remark            String @map("remark") @db.VarChar(50)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user          Users          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  configProfile ConfigProfiles @relation(fields: [configProfileUuid], references: [uuid], onDelete: Cascade)
+
+  @@id([userId, configProfileUuid])
+  @@index([configProfileUuid])
+  @@map("user_singbox_profile_aliases")
+}
+
 model InternalSquadHostLinks {
   hostUuid  String @map("host_uuid") @db.Uuid
   squadUuid String @map("squad_uuid") @db.Uuid
@@ -450,6 +467,7 @@ model ConfigProfiles {
   nodes                 Nodes[]
   configProfileInbounds ConfigProfileInbounds[]
   hosts                 Hosts[]
+  userAliases           UserSingboxProfileAliases[]
 
   @@map("config_profiles")
 }

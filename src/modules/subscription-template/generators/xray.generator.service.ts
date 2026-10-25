@@ -19,6 +19,13 @@ interface ShareLink {
     scheme: 'hysteria2' | 'ss' | 'trojan' | 'vless';
 }
 
+export interface TuicSubscriptionNode {
+    link: string;
+    profileUuid: string | null;
+    insertBeforeHostUuid?: string;
+    insertAfterHostUuid?: string;
+}
+
 const LINK_TARGET_PREFIX = '$link.';
 const LINK_ALLOWED_TARGETS = new Set(['address', 'method', 'password', 'port', 'remark']);
 
@@ -64,10 +71,9 @@ export class XrayGeneratorService {
         userId: bigint,
     ): Promise<string> {
         try {
-            const links = this.generateLinks(hosts, isExtendedClient);
-            if (includeStaticTuicLinks) {
-                links.push(...(await this.getTuicLinks(userId)));
-            }
+            const links = includeStaticTuicLinks
+                ? await this.generateLinksWithTuic(hosts, isExtendedClient, userId)
+                : this.generateLinks(hosts, isExtendedClient);
             const joined = links.join('\n');
             return isBase64 ? Buffer.from(joined).toString('base64') : joined;
         } catch (error) {
@@ -77,24 +83,44 @@ export class XrayGeneratorService {
     }
 
     public generateLinks(hosts: ResolvedProxyConfig[], isExtendedClient: boolean): string[] {
+        return hosts.flatMap((host) => {
+            const link = this.generateHostLink(host, isExtendedClient);
+            return link ? [link] : [];
+        });
+    }
+
+    public async generateLinksWithTuic(
+        hosts: ResolvedProxyConfig[],
+        isExtendedClient: boolean,
+        userId: bigint,
+    ): Promise<string[]> {
+        const tuicNodes = await this.getTuicNodes(userId);
         const links: string[] = [];
+        const inserted = new Set<TuicSubscriptionNode>();
+
+        const insertMatching = (
+            field: 'insertAfterHostUuid' | 'insertBeforeHostUuid',
+            uuid: string,
+        ) => {
+            for (const node of tuicNodes) {
+                if (node[field] !== uuid || inserted.has(node)) continue;
+                links.push(node.link);
+                inserted.add(node);
+            }
+        };
 
         for (const host of hosts) {
-            if (host.metadata.excludeFromSubscriptionTypes.includes('XRAY_BASE64')) continue;
-
-            const shareLink = this.generateLink(host);
-            if (!shareLink) continue;
-
-            const link = this.serializeLink(this.applyBase64Mapper(shareLink, host));
-
-            if (isExtendedClient && host.clientOverrides.serverDescription) {
-                links.push(`${link}?serverDescription=${host.clientOverrides.serverDescription}`);
-            } else {
-                links.push(link);
-            }
+            insertMatching('insertBeforeHostUuid', host.metadata.uuid);
+            const link = this.generateHostLink(host, isExtendedClient);
+            if (link) links.push(link);
+            insertMatching('insertAfterHostUuid', host.metadata.uuid);
         }
 
-        return links;
+        for (const node of tuicNodes) {
+            if (!inserted.has(node)) links.push(node.link);
+        }
+
+        return [...new Set(links)];
     }
 
     public getStaticTuicLinks(): string[] {
@@ -102,7 +128,14 @@ export class XrayGeneratorService {
     }
 
     public async getTuicLinks(userId: bigint): Promise<string[]> {
-        const links = this.getStaticTuicLinks();
+        return (await this.getTuicNodes(userId)).map((node) => node.link);
+    }
+
+    public async getTuicNodes(userId: bigint): Promise<TuicSubscriptionNode[]> {
+        const nodes: TuicSubscriptionNode[] = this.getStaticTuicLinks().map((link) => ({
+            link,
+            profileUuid: null,
+        }));
 
         for (const target of this.configService.getOrThrow('CUSTOM_SINGBOX_TARGETS')) {
             if (!target.subscriptionUrl) continue;
@@ -129,7 +162,17 @@ export class XrayGeneratorService {
                     continue;
                 }
 
-                links.push(buildTuicSubscriptionLink(profile.config, target.subscriptionUrl));
+                const alias = await this.configProfileRepository.getUserAlias(profile.uuid, userId);
+                nodes.push({
+                    link: buildTuicSubscriptionLink(
+                        profile.config,
+                        target.subscriptionUrl,
+                        alias ?? undefined,
+                    ),
+                    profileUuid: profile.uuid,
+                    insertBeforeHostUuid: target.insertBeforeHostUuid,
+                    insertAfterHostUuid: target.insertAfterHostUuid,
+                });
             } catch (error) {
                 this.logger.error(
                     `Failed to build managed TUIC subscription link for "${target.profileName}"`,
@@ -138,7 +181,21 @@ export class XrayGeneratorService {
             }
         }
 
-        return [...new Set(links)];
+        return [...new Map(nodes.map((node) => [node.link, node] as const)).values()];
+    }
+
+    private generateHostLink(host: ResolvedProxyConfig, isExtendedClient: boolean): string | null {
+        if (host.metadata.excludeFromSubscriptionTypes.includes('XRAY_BASE64')) return null;
+
+        const shareLink = this.generateLink(host);
+        if (!shareLink) return null;
+
+        const link = this.serializeLink(this.applyBase64Mapper(shareLink, host));
+        if (isExtendedClient && host.clientOverrides.serverDescription) {
+            return `${link}?serverDescription=${host.clientOverrides.serverDescription}`;
+        }
+
+        return link;
     }
 
     private generateLink(host: ResolvedProxyConfig): ShareLink | null {

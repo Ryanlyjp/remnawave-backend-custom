@@ -149,23 +149,31 @@ export const configSchema = z
             })
             .pipe(
                 z.array(
-                    z.object({
-                        profileName: z.string().min(2).max(30),
-                        url: z.url().transform((url) => url.replace(/\/$/, '')),
-                        token: z.string().min(32),
-                        subscriptionUrl: z
-                            .url()
-                            .refine((value) => {
-                                const url = new URL(value);
-                                return (
-                                    url.protocol === 'tuic:' &&
-                                    !!url.hostname &&
-                                    !url.username &&
-                                    !url.password
-                                );
-                            }, 'subscriptionUrl must be a credential-free tuic:// URL')
-                            .optional(),
-                    }),
+                    z
+                        .object({
+                            profileName: z.string().min(2).max(30),
+                            url: z.url().transform((url) => url.replace(/\/$/, '')),
+                            token: z.string().min(32),
+                            subscriptionUrl: z
+                                .url()
+                                .refine((value) => {
+                                    const url = new URL(value);
+                                    return (
+                                        url.protocol === 'tuic:' &&
+                                        !!url.hostname &&
+                                        !url.username &&
+                                        !url.password
+                                    );
+                                }, 'subscriptionUrl must be a credential-free tuic:// URL')
+                                .optional(),
+                            insertBeforeHostUuid: z.uuid().optional(),
+                            insertAfterHostUuid: z.uuid().optional(),
+                        })
+                        .refine(
+                            (target) =>
+                                !(target.insertBeforeHostUuid && target.insertAfterHostUuid),
+                            'Only one TUIC subscription placement may be configured',
+                        ),
                 ),
             ),
         REMNAWAVE_BRANCH: z.string().default('dev'),

@@ -93,7 +93,14 @@ export const applySingboxPolicyModules = (
     return config;
 };
 
-export const buildTuicSubscriptionLink = (rawConfig: object, subscriptionUrl: string): string => {
+export const getTuicSubscriptionRemark = (subscriptionUrl: string): string =>
+    decodeURIComponent(new URL(subscriptionUrl).hash.slice(1));
+
+export const buildTuicSubscriptionLink = (
+    rawConfig: object,
+    subscriptionUrl: string,
+    remark?: string,
+): string => {
     const config = validateSingboxConfig(rawConfig);
     const inbound = config.inbounds!.find((item) => item.type === 'tuic');
     const users = inbound?.users;
@@ -111,6 +118,7 @@ export const buildTuicSubscriptionLink = (rawConfig: object, subscriptionUrl: st
     const url = new URL(subscriptionUrl);
     url.username = user.uuid;
     url.password = user.password;
+    if (remark) url.hash = remark;
 
     return url.toString();
 };

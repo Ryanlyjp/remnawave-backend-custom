@@ -12,6 +12,15 @@ export const UserHostAliasSchema = z.object({
     effectiveRemark: z.string(),
 });
 
+export const UserSingboxProfileAliasSchema = z.object({
+    configProfileUuid: z.string().uuid(),
+    defaultRemark: z.string(),
+    customRemark: z.string().nullable(),
+    effectiveRemark: z.string(),
+    insertBeforeHostUuid: z.string().uuid().nullable(),
+    insertAfterHostUuid: z.string().uuid().nullable(),
+});
+
 export namespace GetUserHostAliasesCommand {
     export const url = REST_API.USERS.HOST_ALIASES;
     export const TSQ_url = url(':userId');
@@ -33,6 +42,7 @@ export namespace GetUserHostAliasesCommand {
         response: z.object({
             userId: z.number(),
             hosts: z.array(UserHostAliasSchema),
+            singboxProfiles: z.array(UserSingboxProfileAliasSchema),
         }),
     });
 

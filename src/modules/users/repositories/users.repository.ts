@@ -474,24 +474,47 @@ export class UsersRepository {
         return await this.findUniqueByCriteria({ id }, { activeInternalSquads: true });
     }
 
+    public async getSingboxProfileAliases(userId: bigint) {
+        return await this.prisma.tx.userSingboxProfileAliases.findMany({
+            where: { userId },
+            select: {
+                configProfileUuid: true,
+                remark: true,
+            },
+        });
+    }
+
     @Transactional()
-    public async replaceHostAliases(
+    public async replaceSubscriptionAliases(
         userId: bigint,
-        aliases: { hostUuid: string; remark: string }[],
+        hostAliases: { hostUuid: string; remark: string }[],
+        singboxAliases: { configProfileUuid: string; remark: string }[],
     ): Promise<void> {
         await this.prisma.tx.userHostAliases.deleteMany({
             where: { userId },
         });
-
-        if (aliases.length === 0) return;
-
-        await this.prisma.tx.userHostAliases.createMany({
-            data: aliases.map((alias) => ({
-                userId,
-                hostUuid: alias.hostUuid,
-                remark: alias.remark,
-            })),
+        await this.prisma.tx.userSingboxProfileAliases.deleteMany({
+            where: { userId },
         });
+
+        if (hostAliases.length > 0) {
+            await this.prisma.tx.userHostAliases.createMany({
+                data: hostAliases.map((alias) => ({
+                    userId,
+                    hostUuid: alias.hostUuid,
+                    remark: alias.remark,
+                })),
+            });
+        }
+        if (singboxAliases.length > 0) {
+            await this.prisma.tx.userSingboxProfileAliases.createMany({
+                data: singboxAliases.map((alias) => ({
+                    userId,
+                    configProfileUuid: alias.configProfileUuid,
+                    remark: alias.remark,
+                })),
+            });
+        }
     }
 
     public async updateUserStatus(id: bigint, status: TUsersStatus): Promise<boolean> {

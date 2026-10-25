@@ -20,6 +20,8 @@ import { ERRORS, USERS_STATUS, EVENTS } from '@libs/contracts/constants';
 
 import { UserEvent } from '@integration-modules/notifications/interfaces';
 
+import { getTuicSubscriptionRemark } from '@modules/config-profiles/helpers/singbox-config';
+import { ConfigProfileRepository } from '@modules/config-profiles/repositories/config-profile.repository';
 import { GetHostsForUserQuery } from '@modules/hosts/queries/get-hosts-for-user';
 import { AddUserToNodeEvent } from '@modules/nodes/events/add-user-to-node';
 import { AddUsersToNodeEvent } from '@modules/nodes/events/add-users-to-node';
@@ -63,6 +65,7 @@ export class UsersService {
         private readonly queryBus: QueryBus,
         private readonly configService: TypedConfigService,
         private readonly usersQueuesService: UsersQueuesService,
+        private readonly configProfileRepository: ConfigProfileRepository,
     ) {
         this.shortUuidLength = this.configService.getOrThrow('SHORT_UUID_LENGTH');
         this.shortUuidMethod = this.configService.getOrThrow('SHORT_UUID_METHOD');
@@ -151,6 +154,47 @@ export class UsersService {
 
             if (!hosts.isOk) return fail(ERRORS.GET_ALL_HOSTS_ERROR);
 
+            const storedSingboxAliases = new Map(
+                (await this.userRepository.getSingboxProfileAliases(user.id)).map((alias) => [
+                    alias.configProfileUuid,
+                    alias.remark,
+                ]),
+            );
+            const singboxProfiles = [];
+            const seenProfiles = new Set<string>();
+
+            for (const target of this.configService.getOrThrow('CUSTOM_SINGBOX_TARGETS')) {
+                if (!target.subscriptionUrl) continue;
+
+                const profile = await this.configProfileRepository.findFirstByCriteria({
+                    name: target.profileName,
+                    engine: 'SINGBOX',
+                });
+                if (
+                    !profile ||
+                    seenProfiles.has(profile.uuid) ||
+                    !(await this.configProfileRepository.isProfileAvailableToUser(
+                        profile.uuid,
+                        user.id,
+                    ))
+                ) {
+                    continue;
+                }
+
+                seenProfiles.add(profile.uuid);
+                const defaultRemark =
+                    getTuicSubscriptionRemark(target.subscriptionUrl) || profile.name;
+                const customRemark = storedSingboxAliases.get(profile.uuid) ?? null;
+                singboxProfiles.push({
+                    configProfileUuid: profile.uuid,
+                    defaultRemark,
+                    customRemark,
+                    effectiveRemark: customRemark ?? defaultRemark,
+                    insertBeforeHostUuid: target.insertBeforeHostUuid ?? null,
+                    insertAfterHostUuid: target.insertAfterHostUuid ?? null,
+                });
+            }
+
             return ok({
                 userId,
                 hosts: hosts.response.map((host) => ({
@@ -160,6 +204,7 @@ export class UsersService {
                     customRemark: host.userHostAlias,
                     effectiveRemark: host.remark,
                 })),
+                singboxProfiles,
             });
         } catch (error) {
             this.logger.error(error);
@@ -170,6 +215,7 @@ export class UsersService {
     public async updateUserHostAliases(
         userId: number,
         aliases: { hostUuid: string; remark: string }[],
+        singboxAliases?: { configProfileUuid: string; remark: string }[],
     ) {
         try {
             const user = await this.userRepository.findUniqueByCriteria(
@@ -198,9 +244,42 @@ export class UsersService {
                 }
             }
 
-            await this.userRepository.replaceHostAliases(
+            const current = await this.getUserHostAliases(userId);
+            if (!current.isOk) return current;
+
+            const accessibleSingboxProfiles = new Map(
+                current.response.singboxProfiles.map((profile) => [
+                    profile.configProfileUuid,
+                    profile,
+                ]),
+            );
+            const normalizedSingbox = new Map<string, string>();
+
+            if (singboxAliases) {
+                for (const alias of singboxAliases) {
+                    const profile = accessibleSingboxProfiles.get(alias.configProfileUuid);
+                    if (!profile) return fail(ERRORS.CONFIG_PROFILE_NOT_FOUND);
+
+                    const remark = alias.remark.trim();
+                    if (remark && remark !== profile.defaultRemark) {
+                        normalizedSingbox.set(alias.configProfileUuid, remark);
+                    }
+                }
+            } else {
+                for (const profile of current.response.singboxProfiles) {
+                    if (profile.customRemark) {
+                        normalizedSingbox.set(profile.configProfileUuid, profile.customRemark);
+                    }
+                }
+            }
+
+            await this.userRepository.replaceSubscriptionAliases(
                 user.id,
                 [...normalized.entries()].map(([hostUuid, remark]) => ({ hostUuid, remark })),
+                [...normalizedSingbox.entries()].map(([configProfileUuid, remark]) => ({
+                    configProfileUuid,
+                    remark,
+                })),
             );
 
             return await this.getUserHostAliases(userId);
